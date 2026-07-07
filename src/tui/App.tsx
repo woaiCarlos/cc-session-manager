@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer } from 'react';
-import { Box } from 'ink';
+import { Box, useInput } from 'ink';
 import type {
   AppState,
   ModalContext,
@@ -13,6 +13,7 @@ import { ProjectPane } from './panes/ProjectPane.js';
 import { SessionPane } from './panes/SessionPane.js';
 import { StatusBar } from './components/StatusBar.js';
 import { useKeybindings } from './hooks/useKeybindings.js';
+import { SearchModal } from './modals/SearchModal.js';
 
 // ---------------------------------------------------------------------------
 // Action 类型
@@ -164,6 +165,9 @@ export const App: React.FC<AppProps> = ({
   // Tab / 字母键 / 方向键 / Enter / Esc / Ctrl+C 全部走 useKeybindings。
   // 当前 onTab / onUp / onDown / onEnter 等副作用由后续 task (7.14~7.16)
   // 接 selection 与 modal 上下文；此处先传空 no-op 占位以保持 strict 编译。
+  // 注意：useKeybindings 也会响应 `/` 和 `?`，但本组件在下方单独注册了一个
+  // 模态感知的 useInput 来分发 OPEN_MODAL —— useKeybindings 的同名 callback
+  // 保持 no-op，避免重复触发。
   useKeybindings(dispatch as React.Dispatch<any>, {
     onResume: () => {},
     onNew: () => {},
@@ -180,6 +184,17 @@ export const App: React.FC<AppProps> = ({
     onDown: () => {},
     onEnter: () => {},
     onClearSearch: () => {},
+  });
+
+  // 模态感知的快捷键入口：仅在 main view（modal === 'none'）生效。
+  // `/` 打开 SearchModal；`?` 打开 HelpModal（HelpModal 在后续 task 接入，
+  // 这里先把派发连上，避免遗漏 OPEN_MODAL 'help' 的覆盖）。
+  // Ink 允许多个 useInput 并存；useKeybindings 内部的 useInput 也会触发，
+  // 但其 onSearch / onHelp 回调已是 no-op，因此不会重复 dispatch。
+  useInput((input) => {
+    if (state.modal !== 'none') return;
+    if (input === '/') dispatch({ type: 'OPEN_MODAL', modal: 'search' });
+    if (input === '?') dispatch({ type: 'OPEN_MODAL', modal: 'help' });
   });
 
   const selectedProject =
@@ -207,6 +222,7 @@ export const App: React.FC<AppProps> = ({
             selectedId={state.selectedSessionId}
             focused={state.focusedPane === 'sessions'}
             onSelect={(id) => dispatch({ type: 'SELECT_SESSION', id })}
+            searchQuery={state.searchQuery}
           />
         </Box>
       </Box>
@@ -216,6 +232,16 @@ export const App: React.FC<AppProps> = ({
         scanStatus={state.scanStatus}
         lastAction={null}
       />
+      {state.modal === 'search' && (
+        <SearchModal
+          initial={state.searchQuery}
+          onSubmit={(q) => {
+            dispatch({ type: 'SET_SEARCH', q });
+            dispatch({ type: 'CLOSE_MODAL' });
+          }}
+          onCancel={() => dispatch({ type: 'CLOSE_MODAL' })}
+        />
+      )}
     </Box>
   );
 };

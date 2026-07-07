@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import TextInput from 'ink-text-input';
+import { useEscapeToCancel } from '../hooks/useEscapeToCancel.js';
 
 interface Props {
   initial?: string;
@@ -9,9 +10,10 @@ interface Props {
 }
 
 export const SearchModal: React.FC<Props> = ({ initial = '', onSubmit, onCancel }) => {
-  // onCancel is wired in a follow-up task (Esc handling in useKeybindings / App).
-  // Marked used via void reference so TS noUnusedParameters doesn't flag it.
-  void onCancel;
+  // Esc 关闭：注册一个独立的 useInput 监听 escape（见 useEscapeToCancel）。
+  // 这与 useKeybindings 的 onClearSearch 并存 —— useKeybindings 是全局键表，
+  // 这里是为本模态单独声明的取消语义，App 通过 onCancel 闭包派发 CLOSE_MODAL。
+  useEscapeToCancel(onCancel);
   const [q, setQ] = useState(initial);
   return (
     <Box borderStyle="round" borderColor="yellow" flexDirection="column" paddingX={1}>

@@ -254,6 +254,47 @@ describe('App reducer — TOGGLE_FOCUS', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 搜索流（/ 键 → SearchModal → 提交）：OPEN_MODAL → SET_SEARCH → CLOSE_MODAL
+// ---------------------------------------------------------------------------
+
+describe('App reducer — search flow sequence', () => {
+  it('OPEN_MODAL search → SET_SEARCH → CLOSE_MODAL drives UI consistently', () => {
+    // 1. / 键触发 OPEN_MODAL 'search'：modal === 'search'，searchQuery 不变
+    let s = reducer(baseState(), { type: 'OPEN_MODAL', modal: 'search' });
+    expect(s.modal).toBe('search');
+    expect(s.searchQuery).toBe('');
+
+    // 2. 用户在 SearchModal 输入并 Enter：派发 SET_SEARCH('login')，然后 CLOSE_MODAL
+    s = reducer(s, { type: 'SET_SEARCH', q: 'login' });
+    s = reducer(s, { type: 'CLOSE_MODAL' });
+    expect(s.searchQuery).toBe('login');
+    expect(s.modal).toBe('none');
+    expect(s.modalContext).toEqual({});
+  });
+
+  it('OPEN_MODAL search → CLOSE_MODAL (cancel via Esc) keeps searchQuery intact', () => {
+    // 用户已有一个查询，再次按 /，在 SearchModal 里按 Esc 取消 —— searchQuery 不变
+    let s = reducer(baseState(), { type: 'SET_SEARCH', q: 'work' });
+    s = reducer(s, { type: 'OPEN_MODAL', modal: 'search' });
+    expect(s.modal).toBe('search');
+    expect(s.searchQuery).toBe('work');
+
+    s = reducer(s, { type: 'CLOSE_MODAL' });
+    expect(s.modal).toBe('none');
+    // 取消 ≠ 清空；保持原 query（行为契约：Esc 只关模态）
+    expect(s.searchQuery).toBe('work');
+  });
+
+  it('OPEN_MODAL search replaces any prior modal/context (search takes over from help)', () => {
+    let s = reducer(baseState(), { type: 'OPEN_MODAL', modal: 'help' });
+    expect(s.modal).toBe('help');
+    s = reducer(s, { type: 'OPEN_MODAL', modal: 'search' });
+    expect(s.modal).toBe('search');
+    expect(s.modalContext).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCAN_COMPLETE / SESSION_DISCOVERED / NOTICE — 扫描生命周期
 // ---------------------------------------------------------------------------
 
