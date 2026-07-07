@@ -10,6 +10,8 @@ import {
   DEFAULT_STATE,
   type ModalKind,
   type ModalContext,
+  type Project,
+  type Session,
 } from '../../src/state/types.js';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +55,8 @@ function makeOpts(): RouterOptions & {
     }),
     onAddProject: vi.fn(),
     onDeleteProject: vi.fn(),
+    onResumeSession: vi.fn(),
+    onNewSession: vi.fn(),
     onQuit: vi.fn(),
     copySessionIdCalls: [],
     addManualProjectCalls: 0,
@@ -190,15 +194,35 @@ describe('routeKey — main view modal opens', () => {
     expect(calls[0].ctx).toBeUndefined();
   });
 
-  it('"n" opens settings modal (per brief; HelpModal 描述为 "New session"，存在冲突)', () => {
-    const state = makeState();
+  it('"n" triggers onNewSession(project) for the selected project (design doc authority: n = new session)', () => {
+    const proj: Project = {
+      key: '/Users/alice/work',
+      displayName: 'work',
+      cwd: '/Users/alice/work',
+      manual: false,
+      hidden: false,
+      sessions: [],
+    };
+    const state = makeState({
+      projects: [proj],
+      selectedProjectKey: '/Users/alice/work',
+    });
     const dispatch = makeDispatch();
     const opts = makeOpts();
     routeKey(state, dispatch, 'n', key(), opts);
-    const calls = (dispatch as any).mock.calls.map((c) => c[0]);
-    expect(calls).toHaveLength(1);
-    expect(calls[0].type).toBe('OPEN_MODAL');
-    expect(calls[0].modal).toBe('settings');
+    expect(opts.onNewSession).toHaveBeenCalledTimes(1);
+    expect(opts.onNewSession).toHaveBeenCalledWith(proj);
+    // n 不再打开 settings 模态
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('"n" without a selected project is a no-op (do not call onNewSession)', () => {
+    const state = makeState({ selectedProjectKey: null });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, 'n', key(), opts);
+    expect(opts.onNewSession).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
   });
 
   it('"," opens settings modal', () => {
@@ -349,7 +373,101 @@ describe('routeKey — non-confirm modals short-circuit letter keys', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5) 行为不变：unknown keys 是 no-op
+// 5) Enter 行为：session pane → resumeSession；project pane → 聚焦 session pane
+// ---------------------------------------------------------------------------
+
+function makeSession(overrides: Partial<Session> = {}): Session {
+  return {
+    id: 'sess-1',
+    displayName: 'sess',
+    cwd: '/Users/alice/work',
+    lastActiveRelative: '1h ago',
+    lastTimestamp: '2026-07-07T00:00:00Z',
+    ...overrides,
+  };
+}
+
+function makeProjectWith(sessions: Session[]): Project {
+  return {
+    key: '/Users/alice/work',
+    displayName: 'work',
+    cwd: '/Users/alice/work',
+    manual: false,
+    hidden: false,
+    sessions,
+  };
+}
+
+describe('routeKey — Enter behavior', () => {
+  it('Enter in sessions pane with a selected session resumes that session', () => {
+    const sess = makeSession({ id: 'sess-42' });
+    const state = makeState({
+      focusedPane: 'sessions',
+      selectedSessionId: 'sess-42',
+      projects: [makeProjectWith([makeSession({ id: 'other' }), sess])],
+    });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, '', key({ return: true }), opts);
+    expect(opts.onResumeSession).toHaveBeenCalledTimes(1);
+    expect(opts.onResumeSession).toHaveBeenCalledWith(sess);
+    // 恢复 session 不改焦点，不派 reducer action
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('Enter in sessions pane without a selected session is a no-op', () => {
+    const state = makeState({
+      focusedPane: 'sessions',
+      selectedSessionId: null,
+      projects: [makeProjectWith([makeSession()])],
+    });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, '', key({ return: true }), opts);
+    expect(opts.onResumeSession).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('Enter in sessions pane whose selected id is missing from projects is a no-op', () => {
+    const state = makeState({
+      focusedPane: 'sessions',
+      selectedSessionId: 'ghost',
+      projects: [makeProjectWith([makeSession({ id: 'sess-1' })])],
+    });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, '', key({ return: true }), opts);
+    expect(opts.onResumeSession).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('Enter in projects pane focuses the sessions pane', () => {
+    const state = makeState({ focusedPane: 'projects' });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, '', key({ return: true }), opts);
+    const calls = (dispatch as any).mock.calls.map((c) => c[0]);
+    expect(calls).toEqual([{ type: 'FOCUS_PANE', pane: 'sessions' }]);
+    expect(opts.onResumeSession).not.toHaveBeenCalled();
+  });
+
+  it('Enter is swallowed while a modal is open (modal owns its own submit)', () => {
+    const state = makeState({
+      modal: 'search',
+      focusedPane: 'sessions',
+      selectedSessionId: 'sess-1',
+      projects: [makeProjectWith([makeSession()])],
+    });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, '', key({ return: true }), opts);
+    expect(opts.onResumeSession).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6) 行为不变：unknown keys 是 no-op
 // ---------------------------------------------------------------------------
 
 describe('routeKey — unknown keys', () => {

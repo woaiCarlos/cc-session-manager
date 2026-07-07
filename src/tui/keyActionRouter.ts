@@ -1,5 +1,6 @@
 import type { Dispatch } from 'react';
 import type { Action, UiState } from './App.js';
+import type { Project, Session } from '../state/types.js';
 
 // ---------------------------------------------------------------------------
 // keyActionRouter：把 useInput 收到的按键事件映射到 reducer action /
@@ -36,6 +37,10 @@ export interface RouterOptions {
   onAddProject: () => void;
   /** 实际执行 deleteManualProject 的副作用（参数为 groupKey 路径） */
   onDeleteProject: (groupKey: string) => void;
+  /** 在 session 上按 Enter：恢复该 session（resumeSession 包装，terminal 已注入） */
+  onResumeSession: (session: Session) => void;
+  /** 在 project 上按 n：新建 session（newSession 包装，terminal 已注入） */
+  onNewSession: (project: Project) => void;
   /** 释放 lock 并退出进程（释放由调用方负责，路由器只调度） */
   onQuit: () => void;
 }
@@ -82,6 +87,25 @@ export function routeKey(
 
   // main view：实际接线。
   // 注意：Tab 由 useKeybindings 派发 TOGGLE_FOCUS，这里不重复派发。
+
+  // Enter：在 session pane 上恢复选中的 session；在 project pane 上把焦点
+  // 移到 session pane（design doc §3.2 / §3.5）。Enter 由 routeKey 独占处理，
+  // useKeybindings 的 onEnter 在 App 内为 no-op，避免双 dispatch。
+  if (key.return) {
+    if (
+      state.focusedPane === 'sessions' &&
+      typeof state.selectedSessionId === 'string'
+    ) {
+      const sess = state.projects
+        .flatMap((p) => p.sessions)
+        .find((s) => s.id === state.selectedSessionId);
+      if (sess) opts.onResumeSession(sess);
+    } else if (state.focusedPane === 'projects') {
+      dispatch({ type: 'FOCUS_PANE', pane: 'sessions' });
+    }
+    return;
+  }
+
   if (input === 'q' || (key.ctrl && input === 'c')) {
     opts.onQuit();
     return; // quit 后续不应再继续派发其它 action
@@ -90,9 +114,11 @@ export function routeKey(
   if (input === 'r') {
     dispatch({ type: 'OPEN_MODAL', modal: 'rename' });
   } else if (input === 'n') {
-    // 严格按 brief：`n` 打开 settings 模态（HelpModal 列出的 "New session"
-    // 与 brief 不一致，留待后续 task 决定是否换回 newSession 行为）。
-    dispatch({ type: 'OPEN_MODAL', modal: 'settings' });
+    // design doc §3.3 权威：`n` 在选中 project 上新建 session（执行 `claude`）。
+    // 早前 7.14 把 `n` 误接到 settings 模态（与 HelpModal 文案冲突），此处
+    // 校正为调用 newSession；`,` 仍然是 settings 入口。未选中 project 时 no-op。
+    const proj = state.projects.find((p) => p.key === state.selectedProjectKey);
+    if (proj) opts.onNewSession(proj);
   } else if (input === ',') {
     dispatch({ type: 'OPEN_MODAL', modal: 'settings' });
   } else if (input === '?') {

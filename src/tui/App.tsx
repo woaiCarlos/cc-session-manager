@@ -5,6 +5,7 @@ import type {
   ModalContext,
   ModalKind,
   Project,
+  Session,
   SessionMeta,
   TerminalChoice,
 } from '../state/types.js';
@@ -22,6 +23,8 @@ import { routeKey } from './keyActionRouter.js';
 import { addManualProject } from '../actions/addManualProject.js';
 import { copySessionId } from '../actions/copySessionId.js';
 import { deleteManualProject } from '../actions/deleteManualProject.js';
+import { resumeSession } from '../actions/resumeSession.js';
+import { newSession } from '../actions/newSession.js';
 import { release as releaseLock } from '../state/lock.js';
 
 // ---------------------------------------------------------------------------
@@ -219,6 +222,27 @@ export const App: React.FC<AppProps> = ({
     });
   }, []);
 
+  // Enter 副作用：在 session 上恢复；terminal 取自当前 state，故随 terminal 变化
+  // 重建 callback（settings 改终端后立即生效）。错误提示（TerminalNotInstalled 等）
+  // 由后续 status-bar task 接入；此处 catch 吞掉避免未处理 rejection。
+  const onResumeSession = useCallback(
+    (session: Session) => {
+      void resumeSession(session, state.terminal).catch(() => {
+        /* 终端派发失败的 UI 提示由后续 task 接入 */
+      });
+    },
+    [state.terminal]
+  );
+  // `n` 副作用：在选中 project 上新建 session（`claude`）。同样依赖当前 terminal。
+  const onNewSession = useCallback(
+    (project: Project) => {
+      void newSession(project, state.terminal).catch(() => {
+        /* 终端派发失败的 UI 提示由后续 task 接入 */
+      });
+    },
+    [state.terminal]
+  );
+
   // 模态感知的总入口（main view + confirm 分支）。所有字母键均经
   // keyActionRouter.routeKey 派发；router 内部已经做了 modal !== 'none'
   // 的短路以避免穿透模态。
@@ -227,6 +251,8 @@ export const App: React.FC<AppProps> = ({
       onCopySession,
       onAddProject,
       onDeleteProject,
+      onResumeSession,
+      onNewSession,
       onQuit,
     });
   });
