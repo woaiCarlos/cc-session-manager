@@ -139,19 +139,19 @@ git commit -m "chore(scaffold): initialize package.json and .gitignore"
 **Interfaces:**
 - Produces: `node_modules` 安装完成；`npx vitest` `npx tsup` 可用
 
-- [ ] **Step 1：安装运行时依赖**
+- [x] **Step 1：安装运行时依赖**
 
 ```bash
 npm install --save ink@^5 @inkjs/ui@^2 ink-text-input@^6 chalk@^5
 ```
 
-- [ ] **Step 2：安装开发依赖**
+- [x] **Step 2：安装开发依赖**
 
 ```bash
 npm install --save-dev typescript@^5 tsx@^4 @types/node@^22 tsup@^8 vitest@^2 @vitest/ui@^2
 ```
 
-- [ ] **Step 3：验证依赖**
+- [x] **Step 3：验证依赖**
 
 ```bash
 npm ls --depth=0
