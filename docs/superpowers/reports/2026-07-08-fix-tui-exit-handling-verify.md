@@ -124,6 +124,22 @@
 
 修复后：`tests/tui/keyActionRouter.test.ts (33 tests)` 全绿；全量 32 文件 / 325 用例通过；tsup build 成功。
 
+## 新增 commit：Bug 4c 修复（saveState 同步落盘）
+
+Bug 4b 修好后同次会话内 UI 立刻变（乐观更新已生效），但用户反馈「下次启动后选择项目还是显示旧名」。**根因**：`fs.writeFile` / `fs.rename` 是 async libuv 调用，在用户按 Enter 后立刻 `Ctrl+C` 时，Node 同步 `process.exit(0)` 直接终止，未完成的写盘被丢弃。`SESSION_DISCOVERED` 走 prompt fallback → 渲染旧文案 / 长字符串。
+
+**改动**（最小）：
+- `src/state/store.ts`: `saveState` 改用 `fs.mkdirSync` / `fs.writeFileSync` / `fs.renameSync`。API 兼容（仍返回 `Promise<void>`）。写盘在内部同步完成；resolve 后数据已经在内核 buffer，进程被 SIGKILL 也已经持久化。
+- `tests/state/store.test.ts` 加 2 个回归测试：
+  - `saveState writes to disk synchronously`: file exist before promise resolves
+  - `setAlias + immediate quit simulation`: re-import 后从新进程实例读 alias
+
+336 / 336 tests pass；tsup build green。
+
+**Commit:** `ab60d25 fix(state): make saveState write synchronously so renames survive quit`
+
+---
+
 ## 新增 commit：Bug 4b 修复（乐观更新）
 
 用户连续反馈「改了名但列表还是长文案」。已经做过验证的环节：
