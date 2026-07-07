@@ -30,6 +30,12 @@
  *     literal. cwd is POSIX single-quote escaped.
  */
 
+// 安全：所有子进程调用均通过 execFile 参数数组，规避 shell 注入。
+// execFile-only policy: every child_process call MUST go through execFile(file, args[])
+// — never `exec` with a shell-string command. Verified by
+// tests/terminal/execFile-contract.test.ts (Task 5.7).
+/* eslint-disable security/detect-child-process */
+
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import { promisify } from 'node:util';
 import { escapeForAppleScript } from './escape.js';
