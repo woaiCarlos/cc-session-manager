@@ -72,7 +72,7 @@
 - [x] 7.13 绑定 `/` 打开 SearchModal 并按查询过滤 session
 - [x] 7.14 绑定 `r`、`n`、`a`、`d`、`c`、`,`、`?`、`q`、`Ctrl+C` 到对应 action/modal
 - [x] 7.15 绑定 `Enter`：在 session 上调 `resumeSession`，在 project 上聚焦 session pane
-- [ ] 7.16 处理终端 resize：监听 stdout `resize` 事件并触发 Ink 重渲染
+- [x] 7.16 处理终端 resize：监听 stdout `resize` 事件并触发 Ink 重渲染
 
 ## 8. 文件夹选择器集成
 
