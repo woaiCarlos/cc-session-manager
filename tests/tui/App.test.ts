@@ -335,15 +335,37 @@ describe('App reducer — SCAN_COMPLETE', () => {
 });
 
 describe('App reducer — SESSION_DISCOVERED', () => {
-  it('is a no-op (UI rebuilds sessions via groupSessions)', () => {
-    // 设计选择：发现新 session 不在 reducer 内追加；上层调用 groupSessions 重建
-    // 单一测试目的：reducer 必须不抛错，且 state 引用稳定（避免无谓 re-render）
+  it('appends the session to the matching project by cwd, sorted by lastTimestamp desc', () => {
     const before = baseState();
-    const after = reducer(before, {
-      type: 'SESSION_DISCOVERED',
-      meta: makeMeta(),
-    });
-    expect(after).toBe(before);
+    const meta1 = makeMeta({ sessionId: 's1', cwd: '/p1', lastTimestamp: '2026-01-01T00:00:00Z' });
+    const meta2 = makeMeta({ sessionId: 's2', cwd: '/p1', lastTimestamp: '2026-01-02T00:00:00Z' });
+
+    const s1 = reducer(before, { type: 'SESSION_DISCOVERED', meta: meta1 });
+    const s2 = reducer(s1, { type: 'SESSION_DISCOVERED', meta: meta2 });
+
+    // 单 project，含 2 个 session，按 lastTimestamp desc
+    expect(s2.projects).toHaveLength(1);
+    expect(s2.projects[0]!.sessions).toHaveLength(2);
+    expect(s2.projects[0]!.sessions[0]!.id).toBe('s2'); // 最新在前
+    expect(s2.projects[0]!.sessions[1]!.id).toBe('s1');
+  });
+
+  it('creates a new project when cwd is not in the list', () => {
+    const before = baseState();
+    const meta = makeMeta({ sessionId: 's1', cwd: '/new/proj' });
+    const after = reducer(before, { type: 'SESSION_DISCOVERED', meta });
+    expect(after.projects).toHaveLength(1);
+    expect(after.projects[0]!.key).toBe('/new/proj');
+    expect(after.projects[0]!.sessions[0]!.id).toBe('s1');
+  });
+
+  it('dedupes: same sessionId added twice is a no-op', () => {
+    const before = baseState();
+    const meta = makeMeta({ sessionId: 's1', cwd: '/p1' });
+    const s1 = reducer(before, { type: 'SESSION_DISCOVERED', meta });
+    const s2 = reducer(s1, { type: 'SESSION_DISCOVERED', meta });
+    // 引用稳定（dedupe 命中）
+    expect(s2).toBe(s1);
   });
 });
 

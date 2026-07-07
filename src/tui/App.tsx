@@ -107,11 +107,48 @@ export function reducer(state: UiState, action: Action): UiState {
         projects: action.projects,
         scanStatus: 'scanning',
       };
-    case 'SESSION_DISCOVERED':
-      // 设计选择：发现新 session 不在 reducer 内追加；
-      // App 外围按当前 SessionMeta 集合整体重建 projects，再通过 props
-      // 变更触发 SET_PROJECTS 替换引用。
-      return state;
+    case 'SESSION_DISCOVERED': {
+      // SESSION_DISCOVERED 现在在 reducer 内追加 meta 到对应 project。
+      // 之前是 no-op，依赖 cli 外部的累积 projects 重建；那种方式在
+      // 单一 React state 路径下不再适用，会导致 630 sessions 闪烁。
+      //
+      // 算法：按 meta.cwd 找/建 project → project.sessions 中按 lastTimestamp
+      // 倒序插入新 session → 若新 project 不在列表则追加 → 列表按 manual
+      // 优先 + 最近时间倒序。
+      const meta = action.meta;
+      const projects = state.projects.slice();
+      const displayName = deriveDisplayName(meta);
+      const newSession: Session = {
+        id: meta.sessionId,
+        displayName,
+        cwd: meta.cwd,
+        lastActiveRelative: meta.lastTimestamp,
+        lastTimestamp: meta.lastTimestamp,
+      };
+      const idx = projects.findIndex((p) => p.key === meta.cwd);
+      if (idx >= 0) {
+        const proj = projects[idx]!;
+        // 去重：同 id 已存在则跳过
+        if (proj.sessions.some((s) => s.id === newSession.id)) {
+          return state;
+        }
+        const nextSessions = proj.sessions.concat(newSession);
+        nextSessions.sort((a, b) => b.lastTimestamp.localeCompare(a.lastTimestamp));
+        projects[idx] = { ...proj, sessions: nextSessions };
+      } else {
+        const newProj: Project = {
+          key: meta.cwd,
+          displayName: deriveProjectName(meta.cwd),
+          cwd: meta.cwd,
+          manual: false,
+          hidden: false,
+          sessions: [newSession],
+        };
+        projects.push(newProj);
+        projects.sort(projectSortComparator);
+      }
+      return { ...state, projects };
+    }
     case 'SET_PROJECTS':
       if (state.projects === action.projects) return state;
       return { ...state, projects: action.projects };
@@ -141,6 +178,35 @@ export function reducer(state: UiState, action: Action): UiState {
       // effect 路径（写入 notification banner），避免 reducer 副作用溢出。
       return state;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers: derive display names + project sort comparator (used by
+// SESSION_DISCOVERED reducer).  These mirror the priority chain in
+// design.md §4 and keep the reducer self-contained.
+// ---------------------------------------------------------------------------
+
+function deriveDisplayName(meta: SessionMeta): string {
+  const text = meta.lastPrompt ?? meta.firstUserMessage;
+  if (typeof text !== 'string' || text.length === 0) {
+    return meta.sessionId;
+  }
+  // 简单截断（不剥 XML：lastPrompt 已是纯文本）
+  return text.length > 60 ? text.slice(0, 60) + '…' : text;
+}
+
+function deriveProjectName(cwd: string): string {
+  // 简单 basename；若以 / 结尾取最后一段
+  const trimmed = cwd.replace(/\/+$/, '');
+  const parts = trimmed.split('/');
+  return parts[parts.length - 1] || cwd;
+}
+
+function projectSortComparator(a: Project, b: Project): number {
+  if (a.manual !== b.manual) return a.manual ? -1 : 1;
+  const at = a.sessions[0]?.lastTimestamp ?? '';
+  const bt = b.sessions[0]?.lastTimestamp ?? '';
+  return bt.localeCompare(at);
 }
 
 // ---------------------------------------------------------------------------
