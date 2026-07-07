@@ -43,7 +43,7 @@
 - [x] 5.4 实现 `src/terminal/warp.ts` 尽力而为实现（打开 Warp，尝试 keystroke 注入，回退到剪贴板）
 - [x] 5.5 实现 `src/terminal/index.ts` 派发器，读取 `state.terminal` 并调用对应后端
 - [x] 5.6 错误处理：若所选终端未安装，向 TUI 抛出明确错误
-- [ ] 5.7 通过 `child_process.exec` 调用 `osascript -e '...'`，并对输入做消毒
+- [x] 5.7 通过 `child_process.execFile` 调用 `osascript -e '...'`，并对输入做消毒（最终验证层）
 
 ## 6. Session 管理操作
 
