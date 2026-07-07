@@ -41,4 +41,16 @@ describe('groupSessions', () => {
     expect(p.displayName).toBe(path.basename('/p1'));
     expect(p.sessions[0].displayName).toBe('My alias');
   });
+
+  it('sorts sessions within a project by lastTimestamp desc', () => {
+    const result = groupSessions(
+      [
+        s({ sessionId: 'old', cwd: '/p1', lastTimestamp: '2026-01-01T00:00:00Z' }),
+        s({ sessionId: 'newest', cwd: '/p1', lastTimestamp: '2026-03-01T00:00:00Z' }),
+        s({ sessionId: 'mid', cwd: '/p1', lastTimestamp: '2026-02-01T00:00:00Z' }),
+      ],
+      DEFAULT_STATE
+    );
+    expect(result[0].sessions.map((s) => s.id)).toEqual(['newest', 'mid', 'old']);
+  });
 });
