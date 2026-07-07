@@ -24,10 +24,12 @@
  *    surface a persistence failure (EACCES / disk full) instead of
  *    silently losing the add.
  *
- * The folder picker (`src/util/folder-picker.ts`) is currently a stub
- * (Task 8.1 lands the real AppleScript-driven chooser); the action's
- * contract is stable across that swap, so tests mock the picker and
- * stat without ever touching disk.
+ * The folder picker (`src/util/folder-picker.ts`) drives a real
+ * AppleScript `choose folder with prompt …` via `osascript`, returns
+ * its POSIX path on success, or `null` if the user cancels. The
+ * picker is fully mocked in this action's test suite so the contract
+ * (success vs cancel vs invalid path) is observable without ever
+ * touching disk or spawning a dialog.
  */
 
 import { promises as fs } from 'node:fs';
