@@ -20,7 +20,7 @@
 ## 3. Session 发现
 
 - [x] 3.1 实现 `src/discovery/detectRoot.ts`，探测优先级为 `CLAUDE_CONFIG_DIR` → `~/.claude/projects/` → `~/Library/Application Support/Claude/projects/`
-- [ ] 3.2 实现 `src/discovery/scan.ts`，递归列出根目录下所有 `*.jsonl` 文件
+- [x] 3.2 实现 `src/discovery/scan.ts`，递归列出根目录下所有 `*.jsonl` 文件
 - [ ] 3.3 实现 `src/discovery/parse.ts`，从 JSONL 文件提取 `SessionMeta`（sessionId、cwd、firstUserMessage、lastTimestamp），每行 try/catch 隔离
 - [ ] 3.4 实现 `src/discovery/index.ts` 协调器：探测根目录 → 列出文件 → 并行解析（限制并发数）
 - [ ] 3.5 引入后台扫描：暴露 async generator 或回调 API，使 UI 能在扫描完成前渲染
