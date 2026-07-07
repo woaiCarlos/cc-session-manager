@@ -15,7 +15,7 @@
 - [x] 2.3 添加损坏状态恢复：JSON 解析失败时重命名为 `state.json.bak.<timestamp>` 并以默认值重启
 - [x] 2.4 添加默认值填充：合并已加载状态与默认字段以处理缺失字段
 - [x] 2.5 实现 `getSessionRoot()` 辅助函数，优先返回 `state.sessionRoot`，否则返回默认探测结果
-- [ ] 2.6 实现 `getAlias(type, key)` 与 `setAlias(type, key, value)` 辅助函数
+- [x] 2.6 实现 `getAlias(type, key)` 与 `setAlias(type, key, value)` 辅助函数
 
 ## 3. Session 发现
 
