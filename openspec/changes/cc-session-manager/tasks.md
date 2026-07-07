@@ -62,7 +62,7 @@
 - [x] 7.3 实现 `src/tui/panes/SessionPane.tsx`，结构与 ProjectPane 对称
 - [x] 7.4 实现 `src/tui/hooks/useKeybindings.ts`，将键位表映射为派发的 action
 - [x] 7.5 实现 `src/tui/modals/SearchModal.tsx`，使用 `ink-text-input`
-- [ ] 7.6 实现 `src/tui/modals/RenameModal.tsx`，预填当前名称
+- [x] 7.6 实现 `src/tui/modals/RenameModal.tsx`，预填当前名称
 - [ ] 7.7 实现 `src/tui/modals/SettingsModal.tsx`，含 session 根目录路径与终端单选按钮
 - [ ] 7.8 实现 `src/tui/modals/HelpModal.tsx`，列出所有键位
 - [ ] 7.9 实现 `src/tui/modals/ConfirmModal.tsx`，用于删除确认
