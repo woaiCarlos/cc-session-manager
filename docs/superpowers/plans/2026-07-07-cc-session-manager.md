@@ -240,7 +240,7 @@ git commit -m "chore(tsconfig): strict ESM TypeScript with NodeNext"
 **Interfaces:**
 - Produces: `npm run build` 命令可生成 `dist/cli.js`（带 shebang）
 
-- [ ] **Step 1：写入 `tsup.config.ts`**
+- [x] **Step 1：写入 `tsup.config.ts`**
 
 ```ts
 import { defineConfig } from 'tsup';
