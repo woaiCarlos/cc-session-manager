@@ -1,0 +1,21 @@
+{
+  "name": "cc-session-manager",
+  "version": "0.1.0",
+  "description": "macOS terminal UI to browse and resume Claude Code sessions",
+  "type": "module",
+  "bin": {
+    "ccsm": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": ["claude-code", "sessions", "tui", "ink"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "os": ["darwin"],
+  "dependencies": {},
+  "devDependencies": {}
+}
