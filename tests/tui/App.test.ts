@@ -221,6 +221,39 @@ describe('App reducer — FOCUS_PANE', () => {
 });
 
 // ---------------------------------------------------------------------------
+// TOGGLE_FOCUS — Tab 键在两个 pane 之间往返切换
+// ---------------------------------------------------------------------------
+
+describe('App reducer — TOGGLE_FOCUS', () => {
+  it('flips focusedPane from projects to sessions', () => {
+    const seed = baseState();
+    expect(seed.focusedPane).toBe('projects');
+    const next = reducer(seed, { type: 'TOGGLE_FOCUS' });
+    expect(next.focusedPane).toBe('sessions');
+  });
+
+  it('flips focusedPane from sessions back to projects', () => {
+    const seed = reducer(baseState(), { type: 'TOGGLE_FOCUS' });
+    expect(seed.focusedPane).toBe('sessions');
+    const next = reducer(seed, { type: 'TOGGLE_FOCUS' });
+    expect(next.focusedPane).toBe('projects');
+  });
+
+  it('does not touch selection or modal state (independent axes)', () => {
+    const seed = reducer(baseState(), {
+      type: 'OPEN_MODAL',
+      modal: 'rename',
+      ctx: { renameKind: 'session', renameId: 's1' },
+    });
+    seed.selectedProjectKey = 'proj-a';
+    const next = reducer(seed, { type: 'TOGGLE_FOCUS' });
+    expect(next.focusedPane).toBe('sessions');
+    expect(next.selectedProjectKey).toBe('proj-a');
+    expect(next.modal).toBe('rename');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCAN_COMPLETE / SESSION_DISCOVERED / NOTICE — 扫描生命周期
 // ---------------------------------------------------------------------------
 
@@ -274,6 +307,7 @@ describe('App reducer — exhaustiveness', () => {
       { type: 'SELECT_PROJECT', key: null },
       { type: 'SELECT_SESSION', id: null },
       { type: 'FOCUS_PANE', pane: 'sessions' },
+      { type: 'TOGGLE_FOCUS' },
       { type: 'NOTICE', kind: 'test' },
       { type: 'SCAN_COMPLETE' },
     ];

@@ -57,7 +57,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('useKeybindings — Tab', () => {
-  it('dispatches FOCUS_PANE projects and invokes onTab', () => {
+  it('dispatches TOGGLE_FOCUS and invokes onTab', () => {
     const cbs = makeCbs();
     const dispatch = makeDispatch();
     useKeybindings(dispatch, cbs);
@@ -65,7 +65,7 @@ describe('useKeybindings — Tab', () => {
 
     handlerRef.current!('   ', { tab: true } as any);
 
-    expect(dispatch).toHaveBeenCalledWith({ type: 'FOCUS_PANE', pane: 'projects' });
+    expect(dispatch).toHaveBeenCalledWith({ type: 'TOGGLE_FOCUS' });
     expect(cbs.onTab).toHaveBeenCalledTimes(1);
   });
 });
@@ -216,14 +216,14 @@ describe('useKeybindings — priority', () => {
 // ---------------------------------------------------------------------------
 
 describe('useKeybindings — idempotence', () => {
-  it('single keypress only triggers one callback and dispatches FOCUS_PANE at most once', () => {
+  it('single keypress only triggers one callback and dispatches TOGGLE_FOCUS at most once', () => {
     const cbs = makeCbs();
     const dispatch = makeDispatch();
     useKeybindings(dispatch, cbs);
 
     handlerRef.current!('   ', { tab: true } as any);
 
-    // FOCUS_PANE 只能派发一次（return 不应被穿透）
+    // TOGGLE_FOCUS 只能派发一次（return 不应被穿透）
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(cbs.onTab).toHaveBeenCalledTimes(1);
   });

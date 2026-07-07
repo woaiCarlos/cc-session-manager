@@ -20,7 +20,7 @@ interface Callbacks {
 }
 
 type Action =
-  | { type: 'FOCUS_PANE'; pane: 'projects' | 'sessions' }
+  | { type: 'TOGGLE_FOCUS' }
   | { type: 'OPEN_MODAL'; modal: 'search' | 'rename' | 'settings' | 'help' | 'confirm' };
 
 export function useKeybindings(
@@ -29,7 +29,7 @@ export function useKeybindings(
 ): void {
   useInput((input, key) => {
     if (key.tab) {
-      dispatch({ type: 'FOCUS_PANE', pane: 'projects' });
+      dispatch({ type: 'TOGGLE_FOCUS' });
       cbs.onTab();
       return;
     }

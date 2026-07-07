@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer } from 'react';
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import type {
   AppState,
   ModalContext,
@@ -9,6 +9,10 @@ import type {
   TerminalChoice,
 } from '../state/types.js';
 import { DEFAULT_STATE } from '../state/types.js';
+import { ProjectPane } from './panes/ProjectPane.js';
+import { SessionPane } from './panes/SessionPane.js';
+import { StatusBar } from './components/StatusBar.js';
+import { useKeybindings } from './hooks/useKeybindings.js';
 
 // ---------------------------------------------------------------------------
 // Action 类型
@@ -24,6 +28,7 @@ export type Action =
   | { type: 'SELECT_PROJECT'; key: string | null }
   | { type: 'SELECT_SESSION'; id: string | null }
   | { type: 'FOCUS_PANE'; pane: 'projects' | 'sessions' }
+  | { type: 'TOGGLE_FOCUS' }
   | { type: 'NOTICE'; kind: string; payload?: unknown }
   | { type: 'SCAN_COMPLETE' };
 
@@ -106,6 +111,11 @@ export function reducer(state: UiState, action: Action): UiState {
       return { ...state, selectedSessionId: action.id };
     case 'FOCUS_PANE':
       return { ...state, focusedPane: action.pane };
+    case 'TOGGLE_FOCUS':
+      return {
+        ...state,
+        focusedPane: state.focusedPane === 'projects' ? 'sessions' : 'projects',
+      };
     case 'SCAN_COMPLETE':
       return { ...state, scanStatus: 'complete' };
     case 'NOTICE':
@@ -151,9 +161,61 @@ export const App: React.FC<AppProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Tab / 字母键 / 方向键 / Enter / Esc / Ctrl+C 全部走 useKeybindings。
+  // 当前 onTab / onUp / onDown / onEnter 等副作用由后续 task (7.14~7.16)
+  // 接 selection 与 modal 上下文；此处先传空 no-op 占位以保持 strict 编译。
+  useKeybindings(dispatch as React.Dispatch<any>, {
+    onResume: () => {},
+    onNew: () => {},
+    onRename: () => {},
+    onDelete: () => {},
+    onCopy: () => {},
+    onAdd: () => {},
+    onSettings: () => {},
+    onHelp: () => {},
+    onSearch: () => {},
+    onQuit: () => {},
+    onTab: () => {},
+    onUp: () => {},
+    onDown: () => {},
+    onEnter: () => {},
+    onClearSearch: () => {},
+  });
+
+  const selectedProject =
+    state.projects.find((p) => p.key === state.selectedProjectKey) ?? null;
+  const visibleSessions = selectedProject ? selectedProject.sessions : [];
+  const totalSessionCount = state.projects.reduce(
+    (n, p) => n + p.sessions.length,
+    0
+  );
+
   return (
     <Box flexDirection="column">
-      <Text>cc-session-manager — projects: {state.projects.length}</Text>
+      <Box>
+        <Box width="40%">
+          <ProjectPane
+            projects={state.projects}
+            selectedKey={state.selectedProjectKey}
+            focused={state.focusedPane === 'projects'}
+            onSelect={(k) => dispatch({ type: 'SELECT_PROJECT', key: k })}
+          />
+        </Box>
+        <Box width="60%">
+          <SessionPane
+            sessions={visibleSessions}
+            selectedId={state.selectedSessionId}
+            focused={state.focusedPane === 'sessions'}
+            onSelect={(id) => dispatch({ type: 'SELECT_SESSION', id })}
+          />
+        </Box>
+      </Box>
+      <StatusBar
+        projectCount={state.projects.length}
+        sessionCount={totalSessionCount}
+        scanStatus={state.scanStatus}
+        lastAction={null}
+      />
     </Box>
   );
 };
