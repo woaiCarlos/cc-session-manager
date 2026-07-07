@@ -2,6 +2,8 @@
 comet_change: cc-session-manager
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 # cc-session-manager — 技术设计
@@ -30,6 +32,8 @@ canonical_spec: openspec
 - GUI 桌面窗口 / 全局快捷键
 - 网络同步 / 协作 / 分享
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 1. 架构
@@ -121,6 +125,8 @@ canonical_spec: openspec
 - `grouping/*` 是纯函数，无副作用
 - `state/*` 只依赖 `fs`，无业务逻辑
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 2. 数据模型
@@ -186,6 +192,8 @@ interface AppState {
 }
 ```
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 3. 数据流
@@ -289,6 +297,8 @@ SearchModal onSubmit(q) → dispatch CLOSE_MODAL（query 已更新）
 User 按 Escape → dispatch({ type: 'CLEAR_SEARCH' }) → state.searchQuery = ''
 ```
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 4. 显示名优先级（细化）
@@ -331,6 +341,8 @@ function stripXmlTags(s: string): string {
 }
 ```
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 5. 并发模型
@@ -435,6 +447,8 @@ export async function saveState(state: AppState): Promise<void> {
 }
 ```
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 6. AppleScript 转义
@@ -467,6 +481,8 @@ await exec('osascript', ['-e', script]);
 
 使用 `execFile` + 参数数组而非 `exec` + 字符串拼接，避免 shell 注入。
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 7. 错误处理矩阵
@@ -489,6 +505,8 @@ await exec('osascript', ['-e', script]);
 | lock 僵尸（> 24h） | tryAcquire 返回 'stale' | 静默接管 |
 | state.json 损坏 | loadState JSON.parse 失败 | rename 为 state.json.bak.<timestamp>；以默认 state 启动 |
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 8. 测试策略
@@ -547,6 +565,8 @@ kill -0 $LOCK_PID
 - [ ] `?` 帮助可见
 - [ ] `q` 干净退出 + lock 文件被删
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 9. 风险与缓解（已细化的版本）
@@ -562,6 +582,8 @@ kill -0 $LOCK_PID
 | 状态文件损坏 | 极低 | 启动失败 | rename 为 .bak + 默认值；不阻断启动 |
 | `escapeForAppleScript` 注入漏洞 | 极低 | 命令执行 | `execFile` 参数数组（非字符串拼接）；单元测试覆盖注入尝试 |
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 10. 任务分组（映射 OpenSpec tasks.md）
@@ -581,6 +603,8 @@ OpenSpec `tasks.md` 71 个任务按以下顺序执行：
 10. Build & Distribution (10.1-10.4)   — 依赖全部
 ```
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 11. Spec Patch 摘要（已应用到 `specs/*/spec.md`）
@@ -590,6 +614,8 @@ OpenSpec `tasks.md` 71 个任务按以下顺序执行：
 - `tui-interface/spec.md`：新增 "Initial render with skeleton projects" 场景
 - `state-persistence/spec.md`：新增 "Concurrent Instance Detection" 需求 + 3 个场景
 
+archived-with: 2026-07-07-cc-session-manager
+status: final
 ---
 
 ## 12. 开放问题（v1 范围内不解决）
@@ -601,3 +627,4 @@ OpenSpec `tasks.md` 71 个任务按以下顺序执行：
 - 跨平台（Linux/Windows）支持
 
 这些问题在 v1 完成后按用户反馈再评估。
+

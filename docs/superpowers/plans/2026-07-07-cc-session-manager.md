@@ -2,6 +2,7 @@
 change: cc-session-manager
 design-doc: docs/superpowers/specs/2026-07-07-cc-session-manager-design.md
 base-ref: not-yet-init
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # cc-session-manager Implementation Plan
@@ -40,6 +41,7 @@ base-ref: not-yet-init
 | C14 | **AppleScript 转义**：所有 osascript 调用必须用 `execFile` + 参数数组（非字符串拼接），防止 shell 注入 |
 | C15 | **代码组织**：单一职责，一个文件一个清晰边界；`discovery/*` 不依赖 `tui/*`；`terminal/*` 不依赖 `state/*`；`actions/*` 是 TUI ↔ 底层的胶水 |
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 ## 任务分组与依赖图
@@ -59,6 +61,7 @@ base-ref: not-yet-init
 
 总计 71 个任务。任务编号与 OpenSpec `tasks.md` 完全一致。
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 1 组：项目脚手架（Project Scaffolding）
@@ -461,6 +464,7 @@ git add .gitignore
 git commit -m "chore(gitignore): add IDE and editor temp files"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 2 组：状态持久化（State Persistence）
@@ -916,6 +920,7 @@ git add src/state/store.ts tests/state/store.test.ts
 git commit -m "feat(state): getAlias/setAlias for session and project keys"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 3 组：Session 发现（Session Discovery）
@@ -1513,6 +1518,7 @@ git add vitest.config.ts
 git commit -m "test: configure vitest for node environment"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 4 组：项目分组（Project Grouping）
@@ -1905,6 +1911,7 @@ git add src/grouping/group.ts tests/grouping/group.test.ts
 git commit -m "feat(grouping): manual-first, recency-second project ordering"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 5 组：终端集成（Terminal Integration）
@@ -2320,6 +2327,7 @@ git add src/terminal/
 git commit -m "chore(terminal): document execFile-only policy for osascript calls"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 6 组：Session 管理操作（Actions）
@@ -2577,6 +2585,7 @@ git add src/actions/copySessionId.ts
 git commit -m "feat(actions): copySessionId via pbcopy"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 7 组：TUI 界面（TUI Interface）
@@ -3465,6 +3474,7 @@ git add src/tui/hooks/useTerminalSize.ts src/tui/App.tsx
 git commit -m "feat(tui): terminal resize hook + compact mode below 100 cols"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 8 组：Folder Picker
@@ -3565,6 +3575,7 @@ git add src/actions/addManualProject.ts
 git commit -m "feat(actions): reject non-directory paths from picker"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 9 组：集成与冒烟测试（Integration & Smoke）
@@ -3842,6 +3853,7 @@ test ! -f ~/.config/cc-manager/lock && echo "lock cleared"
 git commit -m "fix(lock): ensure release() on quit"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 10 组：构建与分发（Build & Distribution）
@@ -3985,6 +3997,7 @@ git add scripts/smoke.sh src/cli-smoke.ts tsup.config.ts
 git commit -m "feat(distribution): smoke script covering dump, state.json, lock"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 自检（Self-Review）
@@ -4128,6 +4141,7 @@ git add src/util/relative-time.ts tests/util/relative-time.test.ts src/grouping/
 git commit -m "feat(util): relative-time formatter with vitest coverage"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 ## 类型与方法名一致性核查
@@ -4143,6 +4157,7 @@ git commit -m "feat(util): relative-time formatter with vitest coverage"
 
 无不一致。
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 ## 执行交接
@@ -4157,3 +4172,4 @@ git commit -m "feat(util): relative-time formatter with vitest coverage"
 
 - Subagent-Driven → `superpowers:subagent-driven-development`
 - Inline → `superpowers:executing-plans`
+

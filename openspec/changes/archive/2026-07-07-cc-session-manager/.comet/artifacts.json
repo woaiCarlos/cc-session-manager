@@ -4,5 +4,6 @@
   "openspec_tasks": "openspec/changes/cc-session-manager/tasks.md",
   "openspec_delta_spec": "openspec/changes/cc-session-manager/specs/project-grouping/spec.md",
   "handoff_context": "openspec/changes/cc-session-manager/.comet/handoff/design-context.json",
-  "handoff_markdown": "openspec/changes/cc-session-manager/.comet/handoff/design-context.md"
+  "handoff_markdown": "openspec/changes/cc-session-manager/.comet/handoff/design-context.md",
+  "archive_directory": "openspec/changes/archive/2026-07-07-cc-session-manager"
 }
