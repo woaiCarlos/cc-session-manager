@@ -124,6 +124,30 @@
 
 修复后：`tests/tui/keyActionRouter.test.ts (33 tests)` 全绿；全量 32 文件 / 325 用例通过；tsup build 成功。
 
+## 新增 commit：Bug 4d 修复（读 CC custom-title + 取消 ccsm 别名层）
+
+用户反馈：「不需要再在 ccsm 里改一遍，Claude Code 的 /rename 应该自动同步」。Claude Code 把 `{"type":"custom-title","customTitle":"<名字>"}` 事件写到 session 的 JSONL（FN-NAS 实测：`~/.claude/projects/-Users-carlos-workspace-fn-nas/81820017-...jsonl`）。ccsm 应该读这个字段作为名字来源，并删除自维护的 state.json alias 层。
+
+**改动**：
+- `SessionMeta` 加 `customTitle?: string`
+- `parse.ts`：解析每条 JSONL `custom-title` 事件，取最新一条（同时戳时后者覆盖前者）
+- `parseJsonlFile` 现在返回 `{ meta, jsonlPath } | null`
+- `runDiscovery` 同时返回 `sessionId → jsonlPath` 索引（rename onSubmit 用得到）
+- `group.ts` 与 App.tsx `deriveDisplayName` 名字优先级：`customTitle → lastPrompt → firstUserMessage → basename/sessionId`
+- 删除 `SET_ALIAS` reducer 与 Action 联合类型里的 variant
+- 删除 `src/actions/renameSession.ts`（写 state.json alias 的旧通道）
+- 新增 `src/actions/writeSessionCustomTitle.ts`：同步 `appendFileSync` 一行 `{"type":"custom-title",...}` 到对应 JSONL（与 CC `/rename` 写入同一个文件）
+- App.tsx onSubmit：查找 `jsonlIndex[renameTargetId]`，调用 `writeSessionCustomTitle`，sync 写盘；同步 dispatch CLOSE_MODAL + 一个 customTitle-bearing 乐观 SESSION_DISCOVERED 让 UI 立即刷新；失败时 dispatch NOTICE
+- cli.tsx 在 `_runDiscovery` 后把 `jsonlIndex` 注入 App
+
+**展示优先级收敛**：`customTitle → lastPrompt → firstUserMessage → sessionId`（不再读 state.sessionAliases）
+
+331 / 331 tests pass；tsup build green。
+
+**Commit:** `735593e fix(tui): read Claude Code custom-title from JSONL; drop ccsm alias layer`
+
+---
+
 ## 新增 commit：Bug 4c 修复（saveState 同步落盘）
 
 Bug 4b 修好后同次会话内 UI 立刻变（乐观更新已生效），但用户反馈「下次启动后选择项目还是显示旧名」。**根因**：`fs.writeFile` / `fs.rename` 是 async libuv 调用，在用户按 Enter 后立刻 `Ctrl+C` 时，Node 同步 `process.exit(0)` 直接终止，未完成的写盘被丢弃。`SESSION_DISCOVERED` 走 prompt fallback → 渲染旧文案 / 长字符串。
