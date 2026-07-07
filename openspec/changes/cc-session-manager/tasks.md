@@ -78,7 +78,7 @@
 
 - [x] 8.1 实现 `src/util/folder-picker.ts`，使用 `osascript` 调用 macOS 原生文件夹选择器（`choose folder`）
 - [x] 8.2 返回所选 POSIX 路径，若用户取消则返回 `null`（已由 8.1 实现：`return POSIX path of theFolder`，`err.code===1` → `null`，stdout `false` → `null`；tests/util/folder-picker.test.ts #2/#3 覆盖）
-- [ ] 8.3 校验所选路径存在且为目录，再作为手动项目添加
+- [x] 8.3 校验所选路径存在且为目录，再作为手动项目添加（已由 `feat(actions): addManualProject` 实现：`path.resolve` → `fs.stat().catch(()=>null)` → `!stat || !stat.isDirectory() → return null`；tests/actions/addManualProject.test.ts #3（文件→拒绝）、#4（不存在→拒绝）、#2（目录→接受）覆盖）
 
 ## 9. 集成与冒烟测试
 
