@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import path from 'node:path';
 import { groupSessions } from '../../src/grouping/group.js';
 import { DEFAULT_STATE, type SessionMeta } from '../../src/state/types.js';
 
@@ -22,5 +23,22 @@ describe('groupSessions', () => {
     expect(result.map((p) => p.cwd).sort()).toEqual(['/p1', '/p2']);
     const p1 = result.find((p) => p.cwd === '/p1')!;
     expect(p1.sessions.map((x) => x.id).sort()).toEqual(['a', 'b']);
+  });
+
+  it('uses user alias over lastPrompt and cwd basename', () => {
+    const result = groupSessions(
+      [
+        s({
+          sessionId: 'a',
+          cwd: '/p1',
+          firstUserMessage: 'Fix login bug',
+          lastPrompt: 'Latest prompt text',
+        }),
+      ],
+      { ...DEFAULT_STATE, sessionAliases: { a: 'My alias' } }
+    );
+    const p = result[0];
+    expect(p.displayName).toBe(path.basename('/p1'));
+    expect(p.sessions[0].displayName).toBe('My alias');
   });
 });
