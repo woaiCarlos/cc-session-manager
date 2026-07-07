@@ -162,11 +162,36 @@ deps.rescanSession(req.jsonlPath, req.sessionId)  // 同步触发，但内部 aw
   - 触发 onSession setter → `receivedMetas.length === 1` 且 meta 正确
 - 红绿验证：临时 `git stash push -- src/cli.tsx` 后跑该用例 → 失败（`receivedMetas.length === 0`）；恢复 → 通过。
 
+## Bug A 二次回归（用户再次实测）
+
+**根因**：`src/discovery/parse.ts` 的 `customTitle` / `lastPrompt` 用 timestamp 比较决定是否覆盖：
+
+```ts
+if (rec.type === 'custom-title' && ...) {
+  if (!rec.timestamp || !lastTimestamp || rec.timestamp >= lastTimestamp) {
+    customTitle = rec.customTitle;
+  }
+}
+```
+
+`lastTimestamp` 是文件中**任意 event** 的最大 ts。如果 claude 写入新 `custom-title` event 的 ts 早于文件中已有的最后一条 regular event（claude 可能复用 session start ts，或先写 regular event 再写 custom-title），新 custom-title 会被视为「陈旧」丢弃。
+
+叠加原因：claude 的 `custom-title` event 是 async 写入；`child.on('exit')` 触发时，最后几条 JSONL event 可能还在 OS page cache 里没落盘，立刻 `parseJsonlFile` 读到的是旧内容。
+
+**修复链路（双管齐下）**：
+1. `src/discovery/parse.ts:78-90`：把 `customTitle` 和 `lastPrompt` 改为 file-order 语义（JSONL 是 append-only，最新一条 = 最后一行），不再做 timestamp 比较。`lastTimestamp` 仍按 ts 取最大（用于 `projectSortComparator` 和 `lastActiveRelative` 显示）。
+2. `src/cli.tsx:23-72` 新增 `waitForFileStable(filePath, { stableMs=200, maxWaitMs=2000 })`：rescanSession 在 `parseJsonlFile` 之前调用它，轮询 file size 直到稳定 200ms。claude 的最后几条写入会落盘，最坏 2s 超时；首次 stat ENOENT 走快路径。
+
+**自动化验收（红绿验证）**：
+- `tests/discovery/parse.test.ts:117-154` 二次回归 2 用例（custom-title + last-prompt 各 1）：新 event 的 ts 早于 lastTimestamp 仍应胜出。
+  - 红绿验证：临时 `git stash push -- src/discovery/parse.ts` → 跑用例 → fail（lastPrompt 是 'older prompt'，customTitle 是 '旧名'）；恢复 → 通过。
+- `waitForFileStable` 由 `tests/cli/cli.test.ts:413-562` 两个用例间接覆盖：测试运行时等待 ~400ms 让 wait 完成（fs.stat 抛 ENOENT → 快路径 → parseJsonlFile → rescan）。
+
 ## 退出条件
 
-- [x] Typecheck / 357 vitest 用例 / tsup build 全绿
-- [x] Bug A 回归修复（pendingMetas 缓冲），红绿验证通过
+- [x] Typecheck / 359 vitest 用例 / tsup build 全绿
+- [x] Bug A 二次回归修复（file-order + waitForFileStable），红绿验证通过
 - [x] build guard `ALL CHECKS PASSED`
+- [x] verify guard `ALL CHECKS PASSED`（已通过 → phase=archive）
 - [x] 验证报告（本文）已生成
-- [ ] verify guard 待执行
 - [ ] archive 待用户最终确认后由 `comet-archive` 收尾
