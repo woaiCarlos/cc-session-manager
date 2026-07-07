@@ -47,7 +47,7 @@
 
 ## 6. Session 管理操作
 
-- [ ] 6.1 实现 `src/actions/resumeSession(session)`，调用终端派发器执行 `claude --resume <id>`
+- [x] 6.1 实现 `src/actions/resumeSession(session)`，调用终端派发器执行 `claude --resume <id>`
 - [ ] 6.2 实现 `src/actions/newSession(project)`，调用终端派发器在该项目目录下执行 `claude`
 - [ ] 6.3 实现 `src/actions/renameSession(sessionId, newName)`，更新 state 并持久化
 - [ ] 6.4 实现 `src/actions/renameProject(groupKey, newName)`，更新 state 并持久化
