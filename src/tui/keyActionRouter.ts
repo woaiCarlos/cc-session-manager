@@ -88,6 +88,33 @@ export function routeKey(
   // main view：实际接线。
   // 注意：Tab 由 useKeybindings 派发 TOGGLE_FOCUS，这里不重复派发。
 
+  // 上下方向键：在当前 focusedPane 中选择上/下一项。`projects` 列表是顶层
+  // 数组；`sessions` 列表取自 selectedProject.sessions。clamp 到边界。
+  if (key.upArrow || key.downArrow) {
+    const dir = key.downArrow ? 1 : -1;
+    if (state.focusedPane === 'projects') {
+      const list = state.projects;
+      if (list.length === 0) return;
+      const idx = list.findIndex((p) => p.key === state.selectedProjectKey);
+      const next = clamp(idx + dir, 0, list.length - 1);
+      const newKey = list[next]?.key ?? null;
+      if (newKey !== state.selectedProjectKey) {
+        dispatch({ type: 'SELECT_PROJECT', key: newKey });
+      }
+    } else {
+      const proj = state.projects.find((p) => p.key === state.selectedProjectKey);
+      const sessions = proj?.sessions ?? [];
+      if (sessions.length === 0) return;
+      const idx = sessions.findIndex((s) => s.id === state.selectedSessionId);
+      const next = clamp(idx + dir, 0, sessions.length - 1);
+      const newId = sessions[next]?.id ?? null;
+      if (newId !== state.selectedSessionId) {
+        dispatch({ type: 'SELECT_SESSION', id: newId });
+      }
+    }
+    return;
+  }
+
   // Enter：在 session pane 上恢复选中的 session；在 project pane 上把焦点
   // 移到 session pane（design doc §3.2 / §3.5）。Enter 由 routeKey 独占处理，
   // useKeybindings 的 onEnter 在 App 内为 no-op，避免双 dispatch。
@@ -139,4 +166,8 @@ export function routeKey(
   } else if (input === 'c' && typeof state.selectedSessionId === 'string') {
     opts.onCopySession(state.selectedSessionId);
   }
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
 }

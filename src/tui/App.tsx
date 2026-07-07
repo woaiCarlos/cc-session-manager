@@ -188,28 +188,8 @@ export const App: React.FC<AppProps> = ({
     dispatch({ type: 'SET_PROJECTS', projects });
   }, [projects]);
 
-  // Tab / 方向键 / Enter / Esc 由 useKeybindings 处理（onTab/箭头等副作用
-  // 这里仍是 no-op，真正派发只在 useKeybindings 内部的 dispatch——避免与
-  // routeKey 双派发）。所有字母键 / quit 改走下方 useInput + routeKey：
-  // 字母键需要 state.selectedProjectKey 等上下文做条件派发，集中到一个纯
-  // 函数路由更便于单测（tests/tui/keyActionRouter.test.ts）。
-  useKeybindings(dispatch as React.Dispatch<any>, {
-    onResume: () => {},
-    onNew: () => {},
-    onRename: () => {},
-    onDelete: () => {},
-    onCopy: () => {},
-    onAdd: () => {},
-    onSettings: () => {},
-    onHelp: () => {},
-    onSearch: () => {},
-    onQuit: () => {},
-    onTab: () => {},
-    onUp: () => {},
-    onDown: () => {},
-    onEnter: () => {},
-    onClearSearch: () => {},
-  });
+  // useKeybindings 专门派发 Tab → TOGGLE_FOCUS（routeKey 不处理 Tab 以保持原测试约定）
+  useKeybindings(dispatch as React.Dispatch<any>);
 
   // Quit 副作用：释放进程级 lock 后退出。release 来自 src/state/lock.ts，
   // 当前是 no-op 占位（acquire 侧尚未实装），幂等即可。

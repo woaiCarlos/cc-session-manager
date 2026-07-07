@@ -1,50 +1,20 @@
 import { useInput } from 'ink';
 import type { Dispatch } from 'react';
 
-interface Callbacks {
-  onResume: () => void;
-  onNew: () => void;
-  onRename: () => void;
-  onDelete: () => void;
-  onCopy: () => void;
-  onAdd: () => void;
-  onSettings: () => void;
-  onHelp: () => void;
-  onSearch: () => void;
-  onQuit: () => void;
-  onTab: () => void;
-  onUp: () => void;
-  onDown: () => void;
-  onEnter: () => void;
-  onClearSearch: () => void;
-}
+/**
+ * useKeybindings 现在专门处理 keyActionRouter 不便覆盖的快捷键：
+ *  - Tab：派发 TOGGLE_FOCUS（切换 projects/sessions 焦点）
+ *
+ * 其它键（字母 / 上下 / Enter / q）由 App.tsx 的 useInput 通过
+ * keyActionRouter.routeKey 派发，那里有 state 上下文能正确处理上下键
+ * 选择等条件派发。
+ */
+export type KeyAction = { type: 'TOGGLE_FOCUS' };
 
-type Action =
-  | { type: 'TOGGLE_FOCUS' }
-  | { type: 'OPEN_MODAL'; modal: 'search' | 'rename' | 'settings' | 'help' | 'confirm' };
-
-export function useKeybindings(
-  dispatch: Dispatch<Action>,
-  cbs: Callbacks
-): void {
-  useInput((input, key) => {
+export function useKeybindings(dispatch: Dispatch<KeyAction>): void {
+  useInput((_input, key) => {
     if (key.tab) {
       dispatch({ type: 'TOGGLE_FOCUS' });
-      cbs.onTab();
-      return;
     }
-    if (key.upArrow) return cbs.onUp();
-    if (key.downArrow) return cbs.onDown();
-    if (key.return) return cbs.onEnter();
-    if (input === 'q' || (key.ctrl && input === 'c')) return cbs.onQuit();
-    if (input === '/') return cbs.onSearch();
-    if (input === 'r') return cbs.onRename();
-    if (input === 'n') return cbs.onNew();
-    if (input === 'd') return cbs.onDelete();
-    if (input === 'c') return cbs.onCopy();
-    if (input === 'a') return cbs.onAdd();
-    if (input === ',') return cbs.onSettings();
-    if (input === '?') return cbs.onHelp();
-    if (key.escape) return cbs.onClearSearch();
   });
 }
