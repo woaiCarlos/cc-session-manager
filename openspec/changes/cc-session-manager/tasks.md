@@ -5,7 +5,7 @@
 - [x] 1.3 创建 `tsconfig.json`，target=`ES2022`，module=`NodeNext`，开启 strict 模式
 - [x] 1.4 创建 `tsup.config.ts`，将 `src/cli.tsx` 打包为 `dist/cli.js`（保留 shebang 兼容 CommonJS）
 - [x] 1.5 创建 `src/cli.tsx` 入口，含 Ink render 调用和 `#!/usr/bin/env node` shebang
-- [ ] 1.6 编写 `README.md`，说明安装（`npm i -g cc-session-manager`）、使用（`ccsm`）、键位、支持的终端、故障排查（AppleScript 权限）
+- [x] 1.6 编写 `README.md`，说明安装（`npm i -g cc-session-manager`）、使用（`ccsm`）、键位、支持的终端、故障排查（AppleScript 权限）
 - [ ] 1.7 添加 `.gitignore`，覆盖 `node_modules/`、`dist/`、`*.log`
 
 ## 2. 状态持久化

@@ -360,7 +360,7 @@ git commit -m "feat(cli): bootstrapping entry with Ink render"
 **Interfaces:**
 - Produces: 用户可参照的安装、键位、故障排查文档
 
-- [ ] **Step 1：写入 `README.md`**
+- [x] **Step 1：写入 `README.md`**
 
 ```markdown
 # cc-session-manager
@@ -419,7 +419,7 @@ Delete `~/.config/cc-manager/state.json` to reset.
 MIT
 ```
 
-- [ ] **Step 2：提交**
+- [x] **Step 2：提交**
 
 ```bash
 git add README.md
@@ -454,7 +454,7 @@ coverage/
 .tmp/
 ```
 
-- [ ] **Step 2：提交**
+- [x] **Step 2：提交**
 
 ```bash
 git add .gitignore
