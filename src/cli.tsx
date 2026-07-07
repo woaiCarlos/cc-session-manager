@@ -25,7 +25,15 @@ export interface BootstrapDeps {
   detectRoot: typeof detectRoot;
   runDiscovery: typeof runDiscovery;
   groupSessions: typeof groupSessions;
-  render: typeof render;
+  /**
+   * Ink render. 第二参数允许传入 `exitOnCtrlC: false` 等 Ink 选项，
+   * 用于禁用 Ink 默认 Ctrl+C 短路（避免 Ink 7.x 在 Ctrl+C 时只 unmount
+   * 而不调 process.exit 导致 Node 残留）。可选，向后兼容。
+   */
+  render: (
+    el: React.ReactElement,
+    options?: { exitOnCtrlC?: boolean },
+  ) => ReturnType<typeof render>;
   /**
    * Process-exit hook. Default = `process.exit`. Override in tests to
    * capture the requested code without actually terminating the runner
@@ -91,8 +99,13 @@ export async function bootstrap(
   const detected = await _detectRoot();
   const root = appState.sessionRoot ?? detected;
 
-  // 临时路径，无可用根则返回
+  // 临时路径，无可用根则返回。`latestProjects` 是为修复 Bug 1 引入的闭包
+  // 单元：App 通过 `onProjectsChange` 上报它最新的 `state.projects`，cli
+  // 把最新引用写回这里；'current' backend 的 `createAppElement` 直接读取
+  // 该引用，从而在 Ink remount 后立刻呈现完整项目/Session 列表，
+  // 不再被困在首次 render 的空数组里。
   let projects: Project[] = [];
+  let latestProjects: Project[] = [];
   let renderInstance: ReturnType<BootstrapDeps['render']> | null = null;
 
   // App 内部的 onSession / onScanComplete setter — 在 App mount 时绑定。
@@ -112,6 +125,9 @@ export async function bootstrap(
       onScanComplete: (cb: () => void) => {
         _onScanComplete = cb;
       },
+      onProjectsChange: (next: Project[]) => {
+        latestProjects = next;
+      },
     });
 
   // 1) App 的 onSession callback 接收 SESSION_DISCOVERED 派发到 React reducer
@@ -123,17 +139,22 @@ export async function bootstrap(
     _onSession(meta);
   };
 
-  renderInstance = _render(createAppElement(projects));
+  // Bug 2 修复：明确传 `exitOnCtrlC: false` 给 Ink。Ink 7.x 默认会短路掉
+  // user `useInput` 对 Ctrl+C 的处理，转而调用 `handleAppExit → unmount`，
+  // 但 unmount 不会触发 `process.exit`，导致 Node 进程残留。让 Ctrl+C
+  // 走完整 useInput → keyActionRouter → onQuit → process.exit(0)。
+  renderInstance = _render(createAppElement(projects), { exitOnCtrlC: false });
   const { unmount } = renderInstance;
 
   // 'current' terminal backend 需要在用户按 Enter 触发 resume 时暂停 TUI
   // 并在原 terminal 跑 `claude --resume <id>`，退出后再恢复 Ink。把 render
-  // 句柄注册给 current backend，cli 退出时清空。
+  // 句柄注册给 current backend，cli 退出时清空。re-render 也带同样的
+  // `exitOnCtrlC: false` 以保持行为一致。
   setCurrentTerminalDeps({
     unmount: () => unmount(),
-    createAppElement: () => createAppElement(projects),
+    createAppElement: () => createAppElement(latestProjects),
     render: (el) => {
-      const r = _render(el);
+      const r = _render(el, { exitOnCtrlC: false });
       return { rerender: r.rerender, unmount: r.unmount };
     },
   });

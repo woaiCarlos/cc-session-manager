@@ -175,6 +175,7 @@ describe('cli bootstrap', () => {
         projects: Project[];
         onSession: unknown;
         onScanComplete: unknown;
+        onProjectsChange?: unknown;
       };
     };
     expect(element.type).toBeDefined();
@@ -184,6 +185,96 @@ describe('cli bootstrap', () => {
     expect(props.projects).toEqual([]);
     expect(typeof props.onSession).toBe('function');
     expect(typeof props.onScanComplete).toBe('function');
+    // Bug 1 fix: cli passes an onProjectsChange callback so App can report
+    // its current state.projects back; current backend's remount can then
+    // see the up-to-date list instead of the initial empty array.
+    expect(typeof props.onProjectsChange).toBe('function');
+  });
+
+  it('passes exitOnCtrlC: false to Ink render so Ctrl+C reaches useInput', async () => {
+    // Bug 2 fix: Ink 7.x with exitOnCtrlC: true short-circuits the useInput
+    // listener for Ctrl+C and calls handleAppExit → unmount(), which does
+    // NOT call process.exit(). Node keeps running with the TTY intact.
+    // Disabling exitOnCtrlC routes Ctrl+C through useInput → onQuit →
+    // process.exit(0).
+    const deps = makeDeps();
+
+    await bootstrap(deps);
+
+    expect(deps.render).toHaveBeenCalledTimes(1);
+    const options = deps.render.mock.calls[0]![1] as
+      | { exitOnCtrlC?: boolean }
+      | undefined;
+    expect(options?.exitOnCtrlC).toBe(false);
+  });
+
+  it('createAppElement returns the latest projects reported via onProjectsChange', async () => {
+    // Bug 1 fix: when the App updates state.projects in response to
+    // SESSION_DISCOVERED events, it reports the latest array back through
+    // the onProjectsChange prop. cli stores it in a closure cell, and
+    // createAppElement (registered with the 'current' backend) reads the
+    // cell instead of returning the initial empty array.
+    let capturedCreateAppElement: (() => {
+      props: { projects: Project[] };
+    }) | null = null;
+    const renderCalls: { props: { projects: Project[] } }[] = [];
+    const deps = makeDeps({
+      render: vi.fn((element: unknown) => {
+        const el = element as {
+          props: {
+            onProjectsChange?: (p: Project[]) => void;
+            projects: Project[];
+          };
+        };
+        renderCalls.push({ props: { projects: el.props.projects } });
+        // Simulate a session being discovered: the new App would dispatch
+        // SESSION_DISCOVERED which updates state.projects to a non-empty
+        // array. We mimic that side effect by calling onProjectsChange
+        // synchronously here.
+        const reported: Project[] = [
+          {
+            key: '/p1',
+            displayName: 'p1',
+            cwd: '/p1',
+            manual: false,
+            hidden: false,
+            sessions: [
+              {
+                id: 'sid-1',
+                cwd: '/p1',
+                firstUserMessage: 'hi',
+                lastPrompt: null,
+                lastTimestamp: '2026-07-07T00:00:00.000Z',
+              },
+            ],
+          },
+        ];
+        el.props.onProjectsChange?.(reported);
+        return { unmount: vi.fn(), rerender: vi.fn() };
+      }),
+    });
+
+    // Capture the closure passed to setCurrentTerminalDeps.
+    const terminal = await import('../../src/terminal/current.js');
+    const setDepsSpy = vi
+      .spyOn(terminal, 'setCurrentTerminalDeps')
+      .mockImplementation((d: unknown) => {
+        capturedCreateAppElement = (
+          d as { createAppElement: () => { props: { projects: Project[] } } }
+        ).createAppElement;
+        return undefined;
+      });
+
+    try {
+      await bootstrap(deps);
+
+      expect(capturedCreateAppElement).not.toBeNull();
+      const reRendered = capturedCreateAppElement!();
+      expect(reRendered.props.projects).toHaveLength(1);
+      expect(reRendered.props.projects[0]!.key).toBe('/p1');
+    } finally {
+      setDepsSpy.mockRestore();
+    }
   });
 
   it('forwards each discovered session to App.onSession (no manual rerender)', async () => {
