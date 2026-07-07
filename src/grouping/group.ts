@@ -83,5 +83,5 @@ export function groupSessions(metas: SessionMeta[], state: AppState): Project[] 
       existing.manual = true;
     }
   }
-  return projects;
+  return projects.filter((p) => !p.hidden);
 }

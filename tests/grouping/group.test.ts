@@ -74,4 +74,12 @@ describe('groupSessions', () => {
     expect(p.manual).toBe(true);
     expect(p.sessions.map((s) => s.id)).toEqual(['a']);
   });
+
+  it('filters out hidden projects', () => {
+    const result = groupSessions(
+      [s({ sessionId: 'a', cwd: '/p1' })],
+      { ...DEFAULT_STATE, hiddenProjects: [path.resolve('/p1')] }
+    );
+    expect(result).toEqual([]);
+  });
 });
