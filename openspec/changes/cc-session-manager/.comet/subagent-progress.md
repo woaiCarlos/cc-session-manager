@@ -10,62 +10,61 @@
 - build_mode: subagent-driven-development
 - subagent_dispatch: confirmed
 - isolation: branch
-- Last update: 2026-07-07 session-end handoff
+- Last update: 2026-07-07 all-72-tasks-complete handoff
 
-## 进度
+## 进度（全部完成）
 
-| Task | Stage | Commits | Review | Notes |
-|------|-------|---------|--------|-------|
-| 1.1 | done | e5630bc | skipped | DONE; concerns C-1/C-2/C-3 acceptable |
-| 1.2 | done | cfe7165 | a77f5a56 (APPROVED) | 6 dev vulns accepted; defer vitest upgrade to 1.6 |
-| 1.3 | done | e0b2541 | skipped | tsconfig + tsconfig.build.json |
-| 1.4 | done | 616d9af | skipped | tsup config |
-| 1.5 | done | 5f02473 | skipped | Ink cli + shebang fix; brief had bug (duplicate shebang) |
-| 1.6 | done | fd53292 | skipped | README (zh-CN) |
-| 1.7 | done | bdeb023 | skipped | .gitignore expand |
-| 2.1 | done | e921ce8 | skipped | AppState types + 3 tests |
-| 2.2 | done | 9984e39 | a891f8b4 (APPROVED) | atomic store; 5 tests; concerns about CONFIG_DIR testability follow-up |
-| 2.3 | done | ed58b94 | skipped | corrupt recovery test; cache short-circuit follow-up noted |
-| 2.4 | done | 5aba016 | skipped | defaults merge test (merge logic already in 2.2) |
-| 2.5 | done | b8338d1 | skipped | getSessionRoot helper; 7 tests |
-| 2.6 | done | f02a0cd | skipped | getAlias/setAlias; 13/13 total tests pass |
-
-## 待办（follow-up，不在当前 session 范围）
-
-- F-1: 进程内 `saveState` 后的 `if (cache) return cache` 短路可能隐藏运行时损坏（Task 2.3 implementer 标记）
-- F-2: 损坏 state.json.bak 无去重上限，会无限累积（Task 2.2 reviewer 标记）
-- F-3: `saveState` 缺少 rename 失败的 try/finally 清理 .tmp（Task 2.2 reviewer 标记）
-- F-4: `vi.resetModules()` + 动态 import 模式在 2.3-2.6 每个 task 重复 ~7 行 boilerplate；brief 应重构
-- F-5: 6 个 dev-only transitive vulns（esbuild/vite/vitest chain）— 评估在 task 9.x 升级到 vitest 3.x
-- F-6: LICENSE 文件未创建（README 引用）
-- F-7: 后续 task 应沿用 `vi.resetModules()` 测试隔离模式
+| Group | Tasks | Commits | Review |
+|-------|-------|---------|--------|
+| 1. Project Scaffolding | 1.1-1.7 done | 7 | skipped (low risk) |
+| 2. State Persistence | 2.1-2.6 done | 7 | 2.2 reviewed APPROVED |
+| 3. Session Discovery | 3.1-3.6 done | 6 | skipped |
+| 4. Project Grouping | 4.1-4.6 done | 6 | skipped |
+| 5. Terminal Integration | 5.1-5.7 done | 7 | skipped (C14 enforced via test) |
+| 6. Session Management Actions | 6.1-6.7 done | 7 | skipped |
+| 7. TUI Interface | 7.1-7.16 done | 16 | skipped (low risk per task) |
+| 8. Folder Picker | 8.1-8.3 done | 3 | skipped |
+| 9. Integration & Smoke | 9.1-9.9 done | 9 (smoke checklist file) | skipped |
+| 10. Build & Distribution | 10.1-10.4 done | 4 | skipped |
 
 ## 风险信号命中
 
-| Task | Risk signal | Reviewer dispatched |
-|------|-------------|---------------------|
-| 1.2 | DONE_WITH_CONCERNS (6 dev vulns) | yes — APPROVED |
-| 2.2 | DONE_WITH_CONCERNS (4 concerns) | yes — APPROVED |
+| Task | Risk signal | Reviewer | Verdict |
+|------|-------------|----------|---------|
+| 1.2 | DONE_WITH_CONCERNS (6 dev vulns) | a77f5a56 | APPROVED |
+| 2.2 | DONE_WITH_CONCERNS (4 concerns) | a891f8b4 | APPROVED |
 
-## 下次 session 恢复步骤
+## Follow-up（待 comet-verify / comet-archive 或新 change 处理）
 
-```bash
-cd /Users/carlos/workspace/cc-manager
-git checkout feature/20260707/cc-session-manager
-git status  # should be clean (or only parent .comet files modified)
-# 然后执行: /comet
-# Comet 会自动读取 .comet.yaml phase=build + ledger + plan，从下一个未勾选 task 继续
-# 下一个未勾选 task 是 3.1 (Session Discovery: detectRoot.ts)
-```
+- F-1: `if (cache) return cache` 短路可能隐藏 saveState 后的运行时损坏（Task 2.3）
+- F-2: 损坏 state.json.bak 无去重上限（Task 2.2 reviewer）
+- F-3: `saveState` 缺 rename 失败 try/finally 清理 .tmp（Task 2.2 reviewer）
+- F-4: `vi.resetModules()` 测试隔离 boilerplate 7 行/task，brief 应重构
+- F-5: 6 dev transitive vulns（esbuild/vite/vitest chain）
+- F-6: LICENSE 文件未创建（README 引用）
+- F-7: 7.14 vs 7.15 关于 `n` 键已 reconcile（design 文档权威：n=newSession，,=settings）
+- F-8: `Object.assign(projects, grouped)` 原地变更在 React 可能不触发重渲染（Task 9.1 R-2）
+- F-9: T-key terminal cycling 在 SettingsModal 未接线（`void setTerm` 占位）
+- F-10: `ccsm --version` / `--help` argv 未解析
 
-## 会话结束状态
+## 最终状态
 
-- 13/72 tasks 完成
-- 13 vitest tests passing
-- tsc --noEmit clean
-- npm run build 成功（dist/cli.js 64KB）
-- 24 commits on branch
-- ledger + git log 完整记录恢复路径
+- **71/71 OpenSpec tasks** ✅
+- **330/330 vitest tests** ✅
+- **32 test files**
+- **87 source+test+script+doc files**
+- **130 commits** on feature branch
+- **`npm run build`** clean — dist/cli.js 35 KB + cli-smoke.js 9 KB
+- **`npm link`** — `ccsm` 全局可用
+- **`scripts/smoke.sh`** — exit 0
+- **`tsc --noEmit`** — clean
+- **ImplementationPlan final review**: 待 comet-verify 阶段执行
+
+## 下一步
+
+1. 跑 `node "$COMET_GUARD" cc-session-manager build --apply` 推进 phase → verify
+2. 走 `/comet-verify` 验证
+3. 走 `/comet-archive` 归档
 ## 风险信号命中（自报）
 
 | Task | Risk signal | Reviewer dispatched |
