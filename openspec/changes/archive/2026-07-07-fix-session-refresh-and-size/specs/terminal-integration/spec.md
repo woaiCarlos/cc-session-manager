@@ -1,6 +1,6 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: Sessions Pane (modified)
+### Requirement: Sessions Pane
 
 The system SHALL render a sessions list for the currently focused project. Each session row SHALL display, at minimum:
 
@@ -20,9 +20,16 @@ In compact mode (terminal width < 100 columns), the size MAY be omitted to keep 
 - **WHEN** the terminal width is < 100 columns
 - **THEN** the session row does NOT contain a byte-size segment; only `displayName` is rendered
 
-### Requirement: Terminal Integration — Open Action Result Notification (modified)
+## MODIFIED Requirements
 
-The system SHALL notify the user of the result of an open action. When the chosen terminal backend is `current`, after the spawned child exits the system SHALL re-read the resumed session's JSONL file and update its display name, size, and last-active timestamp in the TUI.
+### Requirement: Open Action Result Notification
+
+The system SHALL always keep the TUI running in the original terminal after dispatching an open action, so the user can continue browsing without losing state. When the chosen terminal backend is `current`, after the spawned child exits the system SHALL re-read the resumed session's JSONL file and update its display name, size, and last-active timestamp in the TUI.
+
+#### Scenario: TUI remains interactive after open
+
+- **WHEN** the user resumes a session
+- **THEN** the original TUI stays interactive in the current terminal; the new terminal window is created separately
 
 #### Scenario: current backend exit refreshes session metadata
 
