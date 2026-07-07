@@ -1,0 +1,5 @@
+{"type":"user","sessionId":"fixture-normal","cwd":"/Users/dev/projects/sample","message":{"content":"Refactor the auth module to use JWT"},"timestamp":"2026-05-01T09:00:00Z"}
+{"type":"assistant","sessionId":"fixture-normal","message":{"content":"I'll refactor auth to use JWT..."},"timestamp":"2026-05-01T09:00:30Z"}
+{"type":"user","sessionId":"fixture-normal","cwd":"/Users/dev/projects/sample","message":{"content":"Add tests for the refresh token path"},"timestamp":"2026-05-01T09:05:00Z"}
+{"type":"assistant","sessionId":"fixture-normal","message":{"content":[]},"timestamp":"2026-05-01T09:05:45Z"}
+{"type":"last-prompt","sessionId":"fixture-normal","lastPrompt":"Add tests for the refresh token path","timestamp":"2026-05-01T09:06:00Z"}
