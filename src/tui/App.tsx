@@ -225,6 +225,18 @@ export interface AppProps {
   projects: Project[];
   onSession: (cb: (meta: SessionMeta) => void) => void;
   onScanComplete: (cb: () => void) => void;
+  /**
+   * App 上报当前 `state.projects` 的回调。
+   *
+   * 当前主要由 `src/cli.tsx` 的 bootstrap 装配：当 `terminal` 后端是
+   * `current` 时，claude 会接管 TTY 后 Ink 卸载再重渲染，新 App 实例
+   * 不再持有原 reducer 状态。cli 借助此回调把最新的项目/Session 列表
+   * 同步到 `latestProjects` 闭包，重渲染时由 `createAppElement` 读出，
+   * 避免 remount 后界面变成空白。
+   *
+   * 可选；测试渲染时不提供也安全。
+   */
+  onProjectsChange?: (projects: Project[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -236,6 +248,7 @@ export const App: React.FC<AppProps> = ({
   projects,
   onSession,
   onScanComplete,
+  onProjectsChange,
 }) => {
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
@@ -260,6 +273,13 @@ export const App: React.FC<AppProps> = ({
   useEffect(() => {
     dispatch({ type: 'SET_PROJECTS', projects });
   }, [projects]);
+
+  // 上报当前 `state.projects` 给外部（cli bootstrap）。
+  // 闭包 cell 让 'current' backend 在 Ink remount 时能拿到最新列表
+  // 而不是首次 render 的空数组。
+  useEffect(() => {
+    onProjectsChange?.(state.projects);
+  }, [state.projects, onProjectsChange]);
 
   // useKeybindings 专门派发 Tab → TOGGLE_FOCUS（routeKey 不处理 Tab 以保持原测试约定）
   useKeybindings(dispatch as React.Dispatch<any>);
