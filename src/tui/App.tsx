@@ -361,7 +361,7 @@ export const App: React.FC<AppProps> = ({
         projectCount={state.projects.length}
         sessionCount={totalSessionCount}
         scanStatus={state.scanStatus}
-        lastAction={null}
+        lastAction={state.lastAction}
       />
       {state.modal === 'search' && (
         <SearchModal
