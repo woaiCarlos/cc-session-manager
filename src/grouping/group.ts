@@ -83,5 +83,14 @@ export function groupSessions(metas: SessionMeta[], state: AppState): Project[] 
       existing.manual = true;
     }
   }
+
+  // 4. 排序：manual 在前，再按最近 session 时间倒序
+  projects.sort((a, b) => {
+    if (a.manual !== b.manual) return a.manual ? -1 : 1;
+    const aTs = a.sessions[0]?.lastTimestamp ?? '';
+    const bTs = b.sessions[0]?.lastTimestamp ?? '';
+    return bTs.localeCompare(aTs);
+  });
+
   return projects.filter((p) => !p.hidden);
 }

@@ -82,4 +82,20 @@ describe('groupSessions', () => {
     );
     expect(result).toEqual([]);
   });
+
+  it('orders manual projects first, then auto by most recent session', () => {
+    const result = groupSessions(
+      [
+        s({ sessionId: 'a', cwd: '/auto', lastTimestamp: '2026-05-01T00:00:00Z' }),
+        s({ sessionId: 'b', cwd: '/auto2', lastTimestamp: '2026-04-01T00:00:00Z' }),
+      ],
+      {
+        ...DEFAULT_STATE,
+        manualProjects: [{ path: '/manual', addedAt: '2026-01-01T00:00:00Z' }],
+      }
+    );
+    expect(result[0].cwd).toBe(path.resolve('/manual'));
+    expect(result[1].cwd).toBe(path.resolve('/auto'));
+    expect(result[2].cwd).toBe(path.resolve('/auto2'));
+  });
 });
