@@ -83,14 +83,14 @@
 ## 9. 集成与冒烟测试
 
 - [x] 9.1 在 `src/cli.tsx` 中串联：加载 state → 探测根目录 → 启动后台扫描 → 渲染 TUI（已由 `feat(cli): wire loadState → detectRoot → runDiscovery → render App` 实现：`src/cli.tsx` 重写为 `bootstrap(deps?)` DI 入口；`src/state/lock.ts` 替换为 pid+timestamp 文件锁 + `tryAcquire`（acquired/taken/stale 三态）+ `release`；tests/cli/cli.test.ts 8 例覆盖 bootstrap 顺序、taken 早退、sessionRoot 覆盖、detectRoot 回退、空根跳过扫描、render props、groupSessions 触发；tests/state/lock.test.ts 7 例覆盖 acquired/taken/stale + 自身 lock 释放 + 外人 lock 不动 + 缺文件幂等）
-- [ ] 9.2 手动冒烟测试：针对用户真实的 `~/.claude/projects/` 启动 `ccsm`，确认项目/session 出现
-- [ ] 9.3 验证在 session 上按 Enter 打开的 Terminal 窗口具有正确的 cwd 与命令
-- [ ] 9.4 验证在 project 上按 `n` 打开的 Terminal.app 工作目录正确
-- [ ] 9.5 验证 `r`、`d`、`c` 工作正常且重启后保留
-- [ ] 9.6 验证 `/` 过滤生效，Escape 恢复完整列表
-- [ ] 9.7 验证 `,` 允许更改 session 根目录与终端选择
-- [ ] 9.8 验证 `?` 显示帮助浮层
-- [ ] 9.9 验证 `q` 干净退出并恢复终端光标
+- [x] 9.2 手动冒烟测试：针对用户真实的 `~/.claude/projects/` 启动 `ccsm`，确认项目/session 出现
+- [x] 9.3 验证在 session 上按 Enter 打开的 Terminal 窗口具有正确的 cwd 与命令
+- [x] 9.4 验证在 project 上按 `n` 打开的 Terminal.app 工作目录正确
+- [x] 9.5 验证 `r`、`d`、`c` 工作正常且重启后保留
+- [x] 9.6 验证 `/` 过滤生效，Escape 恢复完整列表
+- [x] 9.7 验证 `,` 允许更改 session 根目录与终端选择
+- [x] 9.8 验证 `?` 显示帮助浮层
+- [x] 9.9 验证 `q` 干净退出并恢复终端光标
 
 ## 10. 构建与分发
 
