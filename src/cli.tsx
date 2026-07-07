@@ -92,35 +92,34 @@ export async function bootstrap(
 
   // 临时路径，无可用根则返回
   let projects: Project[] = [];
-  const seenMetas: SessionMeta[] = [];
   let renderInstance: ReturnType<BootstrapDeps['render']> | null = null;
+
+  // App 内部的 onSession / onScanComplete setter — 在 App mount 时绑定。
+  // _onSession 由 App 通过 onSession prop 注入；onMeta 转发给它。
+  // _onScanComplete 同理。这样 React state 路径成为唯一渲染通道，
+  // 避免 630 session × 2 render 的 flicker。
+  let _onSession: (meta: SessionMeta) => void = () => {};
+  let _onScanComplete: () => void = () => {};
 
   const createAppElement = (nextProjects: Project[]): ReactElement =>
     React.createElement(App, {
       bootstrapState: appState,
       projects: nextProjects,
       onSession: (cb: (meta: SessionMeta) => void) => {
-        // 在 onMeta 内部已经处理；这里 hook 仅用于记录通知
-        void cb;
+        _onSession = cb;
       },
-      onScanComplete: () => {
-        /* 占位 */
+      onScanComplete: (cb: () => void) => {
+        _onScanComplete = cb;
       },
     });
 
+  // 1) App 的 onSession callback 接收 SESSION_DISCOVERED 派发到 React reducer
+  // 2) onScanComplete 派发 SCAN_COMPLETE
+  // 注：之前 onMeta 手动 rerender + useEffect SET_PROJECTS 导致 2 次 render，
+  // 在 630 sessions 时引发屏幕闪烁。修复后只走 React state 一条路径。
+
   const onMeta = (meta: SessionMeta): void => {
-    seenMetas.push(meta);
-    const grouped = _groupSessions(seenMetas, appState);
-    grouped.sort((a, b) => {
-      if (a.manual !== b.manual) return a.manual ? -1 : 1;
-      const at = a.sessions[0]?.lastTimestamp ?? '';
-      const bt = b.sessions[0]?.lastTimestamp ?? '';
-      return bt.localeCompare(at);
-    });
-    const nextProjects: Project[] = [];
-    nextProjects.push(...grouped);
-    projects = nextProjects;
-    renderInstance?.rerender(createAppElement(projects));
+    _onSession(meta);
   };
 
   renderInstance = _render(createAppElement(projects));
@@ -130,13 +129,27 @@ export async function bootstrap(
   void (async (): Promise<void> => {
     if (!root) return;
     await _runDiscovery(root, onMeta);
+    _onScanComplete();
   })();
 
-  process.on('SIGINT', () => {
-    unmount();
-    void _release();
-    _exit(0);
-  });
+  // SIGINT / SIGTERM 清理：必须 await release 才能保证 lock 文件被删
+  const handleSignal = (sig: NodeJS.Signals): void => {
+    void (async (): Promise<void> => {
+      try {
+        await _release();
+      } catch {
+        /* 释放失败不影响退出 */
+      }
+      try {
+        unmount();
+      } catch {
+        /* 卸载失败不影响退出 */
+      }
+      _exit(sig === 'SIGINT' ? 0 : 0);
+    })();
+  };
+  process.on('SIGINT', handleSignal);
+  process.on('SIGTERM', handleSignal);
 }
 
 // Auto-invoke only when this file is run as the main entry. In ESM we

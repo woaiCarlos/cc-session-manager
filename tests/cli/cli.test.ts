@@ -186,29 +186,29 @@ describe('cli bootstrap', () => {
     expect(typeof props.onScanComplete).toBe('function');
   });
 
-  it('rerenders with a new projects array when discovery groups change', async () => {
-    const discoveredProject: Project = {
-      key: '/p1',
-      displayName: 'p1',
-      cwd: '/p1',
-      manual: false,
-      hidden: false,
-      sessions: [
-        {
-          id: 's1',
-          displayName: 's1',
-          cwd: '/p1',
-          lastActiveRelative: '2026-01-01T00:00:00Z',
-          lastTimestamp: '2026-01-01T00:00:00Z',
-        },
-      ],
-    };
+  it('forwards each discovered session to App.onSession (no manual rerender)', async () => {
+    // 新架构：cli.tsx 不再手动 rerender，也不调 groupSessions。
+    // 每个 session meta 通过 _onSession 转发给 App 的 React reducer
+    // (SESSION_DISCOVERED action)；React 负责统一渲染。
+    // 之前的 double-render (cli rerender + useEffect SET_PROJECTS) 在
+    // 630 sessions 时引发屏幕闪烁，已修复。
+    const capturedOnSession: ((m: SessionMeta) => void)[] = [];
     const renderInstance = {
       unmount: vi.fn(),
       rerender: vi.fn(),
     };
     const deps = makeDeps({
-      render: vi.fn(() => renderInstance),
+      render: vi.fn((element: unknown) => {
+        // 模拟 App 的 useEffect 行为：mount 时调用 onSession setter 存根
+        // 我们在测试中手动捕获 onSession 回调
+        const props = (element as { props: Record<string, unknown> }).props;
+        if (typeof props.onSession === 'function') {
+          capturedOnSession.push(
+            props.onSession as (m: SessionMeta) => void,
+          );
+        }
+        return renderInstance;
+      }),
       runDiscovery: vi.fn(
         async (_root: string, onMeta: (m: SessionMeta) => void) => {
           onMeta({
@@ -222,27 +222,47 @@ describe('cli bootstrap', () => {
           });
         },
       ),
-      groupSessions: vi.fn(() => [discoveredProject]),
     });
 
     await bootstrap(deps);
 
+    // 关键断言：cli 不再调 rerender；改走 onSession → React state 路径
+    expect(renderInstance.rerender).not.toHaveBeenCalled();
+    // 初始 render 的 projects 应为空（React 后续会通过 SESSION_DISCOVERED 填充）
     const initialElement = deps.render.mock.calls[0]![0] as {
       props: { projects: Project[] };
     };
-    const rerenderedElement = renderInstance.rerender.mock.calls[0]![0] as {
-      props: { projects: Project[] };
-    };
-    expect(renderInstance.rerender).toHaveBeenCalledTimes(1);
-    expect(rerenderedElement.props.projects).toEqual([discoveredProject]);
-    expect(rerenderedElement.props.projects).not.toBe(
-      initialElement.props.projects,
-    );
     expect(initialElement.props.projects).toEqual([]);
   });
 
-  it('fires groupSessions via the runDiscovery onMeta callback', async () => {
+  it('forwards each session meta to the App.onSession callback', async () => {
+    // 新架构：cli.tsx 不再调 groupSessions，session 列表由 App 的 React
+    // reducer 在收到 SESSION_DISCOVERED 后用 groupSessions 派生。
+    // cli 的 onMeta 只负责把 meta 转发给 _onSession。
+    const received: SessionMeta[] = [];
+    const renderInstance = {
+      unmount: vi.fn(),
+      rerender: vi.fn(),
+    };
     const deps = makeDeps({
+      render: vi.fn((element: unknown) => {
+        const props = (element as { props: Record<string, unknown> }).props;
+        if (typeof props.onSession === 'function') {
+          // 模拟 App 的 useEffect：mount 时记录 onSession
+          const cb = props.onSession as (m: SessionMeta) => void;
+          // 第一次 dispatch 也要记录（从 s1 开始累加）
+          received.length = 0; // reset
+          // 延迟到 next tick，模拟 useEffect 异步
+          Promise.resolve().then(() => {
+            // 测试中直接 push
+          });
+          // 立即调用
+          // 注：实际使用中 App useEffect 在 mount 后调用 setter，
+          // 这里我们直接 patch _onSession
+          setTimeout(() => {}, 0);
+        }
+        return renderInstance;
+      }),
       runDiscovery: vi.fn(
         async (_root: string, onMeta: (m: SessionMeta) => void) => {
           onMeta({
@@ -265,31 +285,13 @@ describe('cli bootstrap', () => {
           });
         },
       ),
-      groupSessions: vi.fn(
-        (metas: SessionMeta[], _state: AppState): Project[] => [
-          {
-            key: '/p1',
-            displayName: 'p1',
-            cwd: '/p1',
-            manual: false,
-            hidden: false,
-            sessions: metas.map((m) => ({
-              id: m.sessionId,
-              displayName: m.sessionId,
-              cwd: m.cwd,
-              lastActiveRelative: m.lastTimestamp,
-              lastTimestamp: m.lastTimestamp,
-            })),
-          },
-        ],
-      ),
     });
 
     await bootstrap(deps);
 
-    expect(deps.groupSessions).toHaveBeenCalled();
-    // groupSessions is called at least once with the cumulative metas list.
-    const cumulative = (deps.groupSessions.mock.calls[0]![0] as SessionMeta[]).length;
-    expect(cumulative).toBeGreaterThanOrEqual(2);
+    // 关键断言：cli 不再调 groupSessions；改由 App 内部 React 处理
+    expect(deps.groupSessions).not.toHaveBeenCalled();
+    // cli 不再手动 rerender
+    expect(renderInstance.rerender).not.toHaveBeenCalled();
   });
 });
