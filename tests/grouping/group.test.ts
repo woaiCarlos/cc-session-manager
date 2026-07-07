@@ -53,4 +53,25 @@ describe('groupSessions', () => {
     );
     expect(result[0].sessions.map((s) => s.id)).toEqual(['newest', 'mid', 'old']);
   });
+
+  it('merges manual projects even when no sessions exist', () => {
+    const result = groupSessions(
+      [],
+      { ...DEFAULT_STATE, manualProjects: [{ path: '/empty', addedAt: '2026-01-01T00:00:00Z' }] }
+    );
+    const m = result.find((p) => p.cwd === path.resolve('/empty'));
+    expect(m).toBeDefined();
+    expect(m!.manual).toBe(true);
+    expect(m!.sessions).toEqual([]);
+  });
+
+  it('flags auto-derived project as manual when listed in manualProjects', () => {
+    const result = groupSessions(
+      [s({ sessionId: 'a', cwd: '/p1' })],
+      { ...DEFAULT_STATE, manualProjects: [{ path: '/p1', addedAt: '2026-01-01T00:00:00Z' }] }
+    );
+    const p = result.find((x) => x.cwd === path.resolve('/p1'))!;
+    expect(p.manual).toBe(true);
+    expect(p.sessions.map((s) => s.id)).toEqual(['a']);
+  });
 });

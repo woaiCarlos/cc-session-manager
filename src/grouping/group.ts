@@ -64,5 +64,24 @@ export function groupSessions(metas: SessionMeta[], state: AppState): Project[] 
       sessions,
     });
   }
+
+  // 3. 合并 manualProjects（区分 manual: true 与自动派生）
+  for (const mp of state.manualProjects) {
+    const key = path.resolve(mp.path);
+    if (!projects.find((p) => p.key === key)) {
+      projects.push({
+        key,
+        displayName: projectDisplayName(key, state.projectAliases[key]),
+        cwd: key,
+        manual: true,
+        hidden: state.hiddenProjects.includes(key),
+        sessions: [],
+      });
+    } else {
+      // 已有自动派生 → 标记 manual=true
+      const existing = projects.find((p) => p.key === key)!;
+      existing.manual = true;
+    }
+  }
   return projects;
 }
