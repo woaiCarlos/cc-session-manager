@@ -1,0 +1,19 @@
+{
+  "change": "cc-session-manager",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "e837c2e630324711597cb7b20ca1e8dd206989e72ab49a0c9d9c740e48b88792",
+  "files": [
+    { "path": "openspec/changes/cc-session-manager/proposal.md", "sha256": "eaa7638efc4162e33319f6aa6edb2188a16ad02ff33e0bed05d60a5c0ac29865" },
+    { "path": "openspec/changes/cc-session-manager/design.md", "sha256": "cb04bc4d4c1959be2bde4d61b176d7f2f187102ac5a7ebc01c57818652df23c1" },
+    { "path": "openspec/changes/cc-session-manager/tasks.md", "sha256": "f5c5f76467682af9a26043b942e165d7be527c63f29736bb3170f10ef7644431" },
+    { "path": "openspec/changes/cc-session-manager/specs/project-grouping/spec.md", "sha256": "6e5bf231714e62c27d0dc2ff9f1943096c5a5ab79a3ba2f216342783d39412ee" },
+    { "path": "openspec/changes/cc-session-manager/specs/session-discovery/spec.md", "sha256": "48cf675ed7913fa96c289ebc1c8222b9ebf81581b67116db0e8e8c4fb49c8551" },
+    { "path": "openspec/changes/cc-session-manager/specs/session-management/spec.md", "sha256": "25ae5c2cb6ec734712b646b97bd409092073cb7bd8ab38fbd3b5bc896b142af2" },
+    { "path": "openspec/changes/cc-session-manager/specs/state-persistence/spec.md", "sha256": "14efd760f40e01595e391a41b1fe3bf9dd7362b9e182c0cf1ac15f23ecf221a5" },
+    { "path": "openspec/changes/cc-session-manager/specs/terminal-integration/spec.md", "sha256": "dab662c589f0a4ed42906530b45c265650d11514ab990431aafdcf9706edf652" },
+    { "path": "openspec/changes/cc-session-manager/specs/tui-interface/spec.md", "sha256": "58a4f6e42f1543e404d81c08b1ec6d57fa37cea324052a6b2ed527969178baee" }
+  ]
+}

@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-07-07
+goal: Build a terminal UI (Node.js + Ink + TypeScript) that lists all Claude
+  Code projects and sessions, supports double-click/key-driven open (resume) and
+  new session creation, rename, search/filter, and multi-terminal support.
