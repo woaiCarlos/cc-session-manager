@@ -39,7 +39,7 @@ describe('scanBackground (AsyncGenerator API)', () => {
     for (const id of ['a', 'b', 'c']) {
       await fs.writeFile(path.join(tmp, `${id}.jsonl`), '');
     }
-    mockedParse.mockImplementation(async (file) => mkMeta(path.basename(file, '.jsonl')));
+    mockedParse.mockImplementation(async (file) => ({ meta: mkMeta(path.basename(file, '.jsonl')), jsonlPath: file }));
 
     const collected: string[] = [];
     for await (const meta of scanBackground(tmp)) {
@@ -63,7 +63,7 @@ describe('scanBackground (AsyncGenerator API)', () => {
     await fs.writeFile(path.join(tmp, 'late.jsonl'), '');
     mockedParse.mockImplementation(async (file) => {
       await new Promise((r) => setTimeout(r, 30));
-      return mkMeta(path.basename(file, '.jsonl'));
+      return { meta: mkMeta(path.basename(file, '.jsonl')), jsonlPath: file };
     });
 
     const gen = scanBackground(tmp);

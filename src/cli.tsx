@@ -114,11 +114,16 @@ export async function bootstrap(
   // 避免 630 session × 2 render 的 flicker。
   let _onSession: (meta: SessionMeta) => void = () => {};
   let _onScanComplete: () => void = () => {};
+  // Bug 4d：cli 在 runDiscovery 完成后把 sessionId → jsonlPath 索引交给
+  // App，rename modal onSubmit 用 jsonlIndex[sessionId] 定位 JSONL，
+  // 把 custom-title 写回到 Claude Code 自己的 session 文件。
+  let jsonlIndex: Record<string, string> = {};
 
   const createAppElement = (nextProjects: Project[]): ReactElement =>
     React.createElement(App, {
       bootstrapState: appState,
       projects: nextProjects,
+      jsonlIndex,
       onSession: (cb: (meta: SessionMeta) => void) => {
         _onSession = cb;
       },
@@ -162,7 +167,7 @@ export async function bootstrap(
   // 启动扫描（不 await）—— UI 抢先渲染
   void (async (): Promise<void> => {
     if (!root) return;
-    await _runDiscovery(root, onMeta);
+    jsonlIndex = await _runDiscovery(root, onMeta);
     _onScanComplete();
   })();
 

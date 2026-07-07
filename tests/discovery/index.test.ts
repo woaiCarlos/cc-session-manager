@@ -84,7 +84,7 @@ describe('runDiscovery', () => {
         lineCount: 1,
       };
       metaByFile.set(file, meta);
-      return meta;
+      return { meta, jsonlPath: file };
     });
 
     const collected: string[] = [];
@@ -103,13 +103,16 @@ describe('runDiscovery', () => {
     mockedParse.mockImplementation(async (file) => {
       if (file.endsWith('b.jsonl')) throw new Error('boom');
       return {
-        sessionId: path.basename(file, '.jsonl'),
-        cwd: '/x',
-        firstUserMessage: null,
-        lastPrompt: null,
-        lastTimestamp: '2026-01-01T00:00:00Z',
-        sizeBytes: 0,
-        lineCount: 1,
+        meta: {
+          sessionId: path.basename(file, '.jsonl'),
+          cwd: '/x',
+          firstUserMessage: null,
+          lastPrompt: null,
+          lastTimestamp: '2026-01-01T00:00:00Z',
+          sizeBytes: 0,
+          lineCount: 1,
+        },
+        jsonlPath: file,
       };
     });
 
@@ -121,8 +124,37 @@ describe('runDiscovery', () => {
 
   it('emits nothing when the root has no jsonl files', async () => {
     const collected: string[] = [];
-    await runDiscovery(tmp, (m) => collected.push(m.sessionId));
+    const idx = await runDiscovery(tmp, (m) => collected.push(m.sessionId));
     expect(collected).toEqual([]);
     expect(mockedParse).not.toHaveBeenCalled();
+    expect(idx).toEqual({});
+  });
+
+  // Bug 4d: runDiscovery 现在同时返回 sessionId → jsonlPath 索引
+  it('Bug 4d: returns a sessionId → jsonlPath index alongside emissions', async () => {
+    const { parseJsonlFile: realParse } = await vi.importActual<
+      typeof import('../../src/discovery/parse.js')
+    >('../../src/discovery/parse.js');
+    mockedParse.mockImplementation(realParse);
+
+    for (const id of ['s1', 's2']) {
+      await fs.writeFile(
+        path.join(tmp, `${id}.jsonl`),
+        JSON.stringify({
+          type: 'user',
+          sessionId: id,
+          cwd: '/x',
+          message: { content: id },
+          timestamp: '2026-01-01T00:00:00Z',
+        }) + '\n',
+      );
+    }
+
+    const collected: string[] = [];
+    const idx = await runDiscovery(tmp, (m) => collected.push(m.sessionId));
+    expect(Object.keys(idx).sort()).toEqual(['s1', 's2']);
+    expect(idx['s1']).toBe(path.join(tmp, 's1.jsonl'));
+    expect(idx['s2']).toBe(path.join(tmp, 's2.jsonl'));
+    expect(collected.sort()).toEqual(['s1', 's2']);
   });
 });

@@ -9,6 +9,7 @@ interface JsonRecord {
   cwd?: string;
   timestamp?: string;
   lastPrompt?: string;
+  customTitle?: string; // Bug 4d: Claude Code `/rename` 写入的事件
   message?: { content?: unknown };
 }
 
@@ -18,14 +19,30 @@ function readContentString(content: unknown): string | null {
 }
 
 /**
+ * Bug 4d：parseJsonlFile 现在返回 `{ meta, jsonlPath }` —— 让上层能
+ * 用 sessionId 反查文件路径（rename onSubmit 要写回这个文件）。
+ */
+export interface ParsedSession {
+  meta: SessionMeta;
+  jsonlPath: string;
+}
+
+/**
  * Parse a single `.jsonl` session file into a `SessionMeta`.
  * Streaming, line-by-line, with per-line fault tolerance:
  * malformed JSON lines are skipped, never abort the whole parse.
  *
+ * Bug 4d：除 `firstUserMessage` / `lastPrompt` 外，还采集**最新一条**
+ * `{"type":"custom-title","customTitle":"..."}` 事件作为
+ * `customTitle` —— 这是 Claude Code `/rename` slash command 的
+ * 唯一持久化位置；ccsm 把它作为显示名主源。
+ *
  * Returns `null` if the file does not exist, is not a regular file, has no
  * recoverable `sessionId`, or has no `lastTimestamp` (i.e. zero usable records).
  */
-export async function parseJsonlFile(filePath: string): Promise<SessionMeta | null> {
+export async function parseJsonlFile(
+  filePath: string,
+): Promise<ParsedSession | null> {
   const stat = await fs.stat(filePath).catch(() => null);
   if (!stat || !stat.isFile()) return null;
 
@@ -38,6 +55,7 @@ export async function parseJsonlFile(filePath: string): Promise<SessionMeta | nu
   let cwd: string | undefined;
   let firstUserMessage: string | null = null;
   let lastPrompt: string | null = null;
+  let customTitle: string | undefined;
   let lastTimestamp: string | undefined;
   let lineCount = 0;
 
@@ -57,9 +75,20 @@ export async function parseJsonlFile(filePath: string): Promise<SessionMeta | nu
       firstUserMessage = readContentString(rec.message?.content);
     }
     if (rec.type === 'last-prompt' && typeof rec.lastPrompt === 'string') {
-      // Prefer the latest last-prompt by timestamp.
-      if (!rec.timestamp || !lastTimestamp || rec.timestamp > lastTimestamp) {
+      // Prefer the latest last-prompt by timestamp; same-timestamp events
+      // use last-write-wins so re-recording a prompt keeps the freshest one.
+      if (!rec.timestamp || !lastTimestamp || rec.timestamp >= lastTimestamp) {
         lastPrompt = rec.lastPrompt;
+      }
+    }
+    // Bug 4d：custom-title 与 last-prompt 同优先级「取最新」，按 timestamp 比较
+    if (
+      rec.type === 'custom-title' &&
+      typeof rec.customTitle === 'string' &&
+      rec.customTitle.length > 0
+    ) {
+      if (!rec.timestamp || !lastTimestamp || rec.timestamp >= lastTimestamp) {
+        customTitle = rec.customTitle;
       }
     }
     if (typeof rec.timestamp === 'string') {
@@ -76,12 +105,16 @@ export async function parseJsonlFile(filePath: string): Promise<SessionMeta | nu
   if (!sessionId || !lastTimestamp) return null;
 
   return {
-    sessionId,
-    cwd: cwd ?? '',
-    firstUserMessage,
-    lastPrompt,
-    lastTimestamp,
-    sizeBytes: stat.size,
-    lineCount,
+    meta: {
+      sessionId,
+      cwd: cwd ?? '',
+      firstUserMessage,
+      lastPrompt,
+      customTitle,
+      lastTimestamp,
+      sizeBytes: stat.size,
+      lineCount,
+    },
+    jsonlPath: filePath,
   };
 }

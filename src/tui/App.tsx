@@ -24,8 +24,7 @@ import { routeKey } from './keyActionRouter.js';
 import { addManualProject } from '../actions/addManualProject.js';
 import { copySessionId } from '../actions/copySessionId.js';
 import { deleteManualProject } from '../actions/deleteManualProject.js';
-import { renameSession as renameSessionAction } from '../actions/renameSession.js';
-import { renameProject as renameProjectAction } from '../actions/renameProject.js';
+import { writeSessionCustomTitle } from '../actions/writeSessionCustomTitle.js';
 import { resumeSession } from '../actions/resumeSession.js';
 import { newSession } from '../actions/newSession.js';
 import { release as releaseLock } from '../state/lock.js';
@@ -47,14 +46,7 @@ export type Action =
   | { type: 'FOCUS_PANE'; pane: 'projects' | 'sessions' }
   | { type: 'TOGGLE_FOCUS' }
   | { type: 'NOTICE'; kind: string; payload?: unknown; message?: string }
-  | { type: 'SCAN_COMPLETE' }
-  /** Bug 4 修复：rename 提交时把 alias 写入 state 并同步更新对应项目/会话的 displayName */
-  | {
-      type: 'SET_ALIAS';
-      kind: 'session' | 'project';
-      key: string;
-      name: string;
-    };
+  | { type: 'SCAN_COMPLETE' };
 
 // ---------------------------------------------------------------------------
 // UiState = 持久化 AppState + 纯 UI 字段
@@ -125,12 +117,12 @@ export function reducer(state: UiState, action: Action): UiState {
       // 倒序插入新 session → 若新 project 不在列表则追加 → 列表按 manual
       // 优先 + 最近时间倒序。
       //
-      // displayName 优先级与 `group.ts:53` 的 `sessionDisplayName(meta, alias)`
-      // 一致：alias → lastPrompt → firstUserMessage → sessionId。
+      // Bug 4d：displayName 优先级与 `group.ts:23` 的 `sessionDisplayName`
+      // 一致：customTitle → lastPrompt → firstUserMessage → sessionId。
+      // 不再读 `state.sessionAliases`（ccsm 自维护的 alias 层已删）。
       const meta = action.meta;
-      const alias = state.sessionAliases[meta.sessionId];
       const projects = state.projects.slice();
-      const displayName = deriveDisplayName(meta, alias);
+      const displayName = deriveDisplayName(meta);
       const newSession: Session = {
         id: meta.sessionId,
         displayName,
@@ -143,6 +135,15 @@ export function reducer(state: UiState, action: Action): UiState {
         const proj = projects[idx]!;
         // 去重：同 id 已存在则跳过
         if (proj.sessions.some((s) => s.id === newSession.id)) {
+          // 但若这条 meta 携带更新的 customTitle，也要 patch（rename 后重启 ccsm 的场景）
+          const existing = proj.sessions.find((s) => s.id === newSession.id)!;
+          if (newSession.displayName !== existing.displayName) {
+            const nextSessions = proj.sessions.map((s) =>
+              s.id === newSession.id ? newSession : s,
+            );
+            projects[idx] = { ...proj, sessions: nextSessions };
+            return { ...state, projects };
+          }
           return state;
         }
         const nextSessions = proj.sessions.concat(newSession);
@@ -165,29 +166,6 @@ export function reducer(state: UiState, action: Action): UiState {
     case 'SET_PROJECTS':
       if (state.projects === action.projects) return state;
       return { ...state, projects: action.projects };
-    case 'SET_ALIAS': {
-      // Bug 4 修复：rename 提交落盘成功后 dispatch，局部更新 alias map
-      // 以及 state.projects 中匹配 Session/Project 的 displayName，让 UI
-      // 立即呈现新名（无需重新扫描或 BOOTSTRAP）。
-      if (action.kind === 'session') {
-        const aliases = { ...state.sessionAliases, [action.key]: action.name };
-        const projects = state.projects.map((p) => ({
-          ...p,
-          sessions: p.sessions.map((s) =>
-            s.id === action.key ? { ...s, displayName: action.name } : s,
-          ),
-        }));
-        return { ...state, sessionAliases: aliases, projects };
-      }
-      const aliases = {
-        ...state.projectAliases,
-        [action.key]: action.name,
-      };
-      const projects = state.projects.map((p) =>
-        p.key === action.key ? { ...p, displayName: action.name } : p,
-      );
-      return { ...state, projectAliases: aliases, projects };
-    }
     case 'SET_TERMINAL':
       return { ...state, terminal: action.terminal };
     case 'SET_SEARCH':
@@ -229,12 +207,11 @@ export function reducer(state: UiState, action: Action): UiState {
 // design.md §4 and keep the reducer self-contained.
 // ---------------------------------------------------------------------------
 
-function deriveDisplayName(meta: SessionMeta, alias?: string): string {
-  // 与 `group.ts:53` 的 sessionDisplayName(meta, alias) 同优先级：alias →
-  // lastPrompt → firstUserMessage → sessionId。Bug 4 修复：alias 非空时
-  // 直接返回，不再 fall back 到 prompt 文本，确保 SESSION_DISCOVERED 路径
-  // 和 groupSessions 路径对同一份 (meta, alias) 给出相同的 displayName。
-  if (alias) return alias;
+function deriveDisplayName(meta: SessionMeta): string {
+  // Bug 4d：与 `group.ts:23` sessionDisplayName 同优先级。
+  // 单一来源 = Claude Code JSONL 的 custom-title（`/rename` 写入）。
+  // 不再读 state.sessionAliases（ccsm 自维护的 alias 层已删）。
+  if (meta.customTitle) return meta.customTitle;
   const text = meta.lastPrompt ?? meta.firstUserMessage;
   if (typeof text !== 'string' || text.length === 0) {
     return meta.sessionId;
@@ -278,6 +255,12 @@ export interface AppProps {
    * 可选；测试渲染时不提供也安全。
    */
   onProjectsChange?: (projects: Project[]) => void;
+  /**
+   * Bug 4d：sessionId → jsonlPath 映射，由 cli.tsx 在 discovery 阶段
+   * 构建并透传，让 ccsm 的 R 键能 append custom-title 到正确的 JSONL。
+   * 可选；不提供时 R 键会提示「未找到对应 session 文件」并 dispatch NOTICE。
+   */
+  jsonlIndex?: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +273,7 @@ export const App: React.FC<AppProps> = ({
   onSession,
   onScanComplete,
   onProjectsChange,
+  jsonlIndex,
 }) => {
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
@@ -439,18 +423,20 @@ export const App: React.FC<AppProps> = ({
           initial={state.modalContext.renameCurrentName ?? ''}
           kind={state.modalContext.renameKind ?? 'session'}
           onSubmit={(newName) => {
-            // Bug 4b 修复（乐观更新）：把 SET_ALIAS 同步派发，UI 立即更新。
-            // 不再「先关模态 → 异步落盘 → 异步 SET_ALIAS」三段串行 —— 改
-            // 为「同步 SET_ALIAS + 同步 CLOSE_MODAL → 后台异步落盘」。
+            // Bug 4d：ccsm 不再自维护 alias；rename modal 的提交直接把
+            // `{"type":"custom-title","customTitle":...}` 一行同步
+            // append 到 Claude Code 的 session JSONL —— 与 CC 自身的
+            // `/rename` slash command 写入同一个文件，达成单一持久化来源。
             //
-            //   1. 校验 targetId + safeName（非空）
-            //   2. 同步 dispatch SET_ALIAS：state.sessionAliases 写入、目标行
-            //      displayName 立即更新；用户立刻看到新名（无须等磁盘）。
-            //   3. 同步 dispatch CLOSE_MODAL：关闭模态（与 SET_ALIAS 同批
-            //      React 调度，单次 commit）。
-            //   4. 后台异步 renameSessionAction / renameProjectAction 落盘；
-            //      失败时 dispatch NOTICE → status-bar 展示错误（UI 保留
-            //      新名，不滚回；用户可看到失败后重试）。
+            //  1. 校验 targetId + safeName（非空）
+            //  2. 查找 jsonlIndex[sessionId] 拿到 JSONL 文件路径
+            //  3. 同步 dispatch CLOSE_MODAL（用户立刻看到反馈）
+            //  4. 同步 appendFileSync custom-title（即便立刻 Ctrl+C 也已落盘）
+            //  5. 失败：dispatch NOTICE 报告（status-bar 显示）
+            //  6. 用户名优先显示：用户重命名后，下次 SESSION_DISCOVERED 扫描会读到；
+            //     但如果用户在同次会话内对当前 session 改名，需要立刻 patch UI
+            //     —— 用乐观 SESSION_DISCOVERED-style 派发（dispatch 一条带
+            //     customTitle 的虚拟 meta，让 reducer 刷新对应 Session 行）。
             const safeName = newName.trim();
             const kind = state.modalContext.renameKind ?? 'session';
             const targetId =
@@ -459,31 +445,64 @@ export const App: React.FC<AppProps> = ({
                 ? state.selectedSessionId
                 : state.selectedProjectKey);
             if (typeof targetId !== 'string' || safeName.length === 0) {
-              // 校验失败直接关模态，原 alias 保持不变
               dispatch({ type: 'CLOSE_MODAL' });
               return;
             }
-            // 乐观更新：先派 SET_ALIAS（关键），再派 CLOSE_MODAL
-            dispatch({
-              type: 'SET_ALIAS',
-              kind,
-              key: targetId,
-              name: safeName,
-            });
             dispatch({ type: 'CLOSE_MODAL' });
-            // 后台异步落盘；失败仅触发 NOTICE
-            const persist =
-              kind === 'session'
-                ? renameSessionAction(targetId, safeName)
-                : renameProjectAction(targetId, safeName);
-            void persist.catch((err: unknown) => {
+            // 把 custom-title 写回 JSONL —— 单一来源
+            const jsonlPath = jsonlIndex?.[targetId];
+            if (!jsonlPath) {
+              dispatch({
+                type: 'NOTICE',
+                kind: 'error',
+                message:
+                  'Rename failed: JSONL path not found for session; re-scan may be needed',
+              });
+              return;
+            }
+            try {
+              // writeSessionCustomTitle 在内部 appendFileSync（同步 syscall）
+              void writeSessionCustomTitle(jsonlPath, targetId, safeName).catch(
+                (err: unknown) => {
+                  const msg = err instanceof Error ? err.message : String(err);
+                  dispatch({
+                    type: 'NOTICE',
+                    kind: 'error',
+                    message: `Rename failed: ${msg}`,
+                  });
+                },
+              );
+              // 乐观：派发 SESSION_DISCOVERED-style 同步 patch 当前 session
+              // 的 displayName（即时刷新，UI 不必等到下次 scan）。reducer 内
+              // 会找到匹配 session 并把 displayName 改成 safeName。
+              if (kind === 'session') {
+                const meta = state.projects
+                  .flatMap((p) => p.sessions)
+                  .find((s) => s.id === targetId);
+                if (meta) {
+                  dispatch({
+                    type: 'SESSION_DISCOVERED',
+                    meta: {
+                      sessionId: meta.id,
+                      cwd: meta.cwd,
+                      firstUserMessage: null,
+                      lastPrompt: null,
+                      customTitle: safeName,
+                      lastTimestamp: meta.lastTimestamp,
+                      sizeBytes: 0,
+                      lineCount: 0,
+                    },
+                  });
+                }
+              }
+            } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               dispatch({
                 type: 'NOTICE',
                 kind: 'error',
                 message: `Rename failed: ${msg}`,
               });
-            });
+            }
           }}
           onCancel={() => dispatch({ type: 'CLOSE_MODAL' })}
         />

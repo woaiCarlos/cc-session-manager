@@ -25,7 +25,9 @@ describe('groupSessions', () => {
     expect(p1.sessions.map((x) => x.id).sort()).toEqual(['a', 'b']);
   });
 
-  it('uses user alias over lastPrompt and cwd basename', () => {
+  it('uses customTitle over lastPrompt and cwd basename (Bug 4d)', () => {
+    // Bug 4d：不再读 ccsm 自维护的 state.sessionAliases；显示名主源
+    // 变成 meta.customTitle（Claude Code 的 JSONL custom-title 事件）。
     const result = groupSessions(
       [
         s({
@@ -33,13 +35,14 @@ describe('groupSessions', () => {
           cwd: '/p1',
           firstUserMessage: 'Fix login bug',
           lastPrompt: 'Latest prompt text',
+          customTitle: '飞牛内网穿透',
         }),
       ],
-      { ...DEFAULT_STATE, sessionAliases: { a: 'My alias' } }
+      DEFAULT_STATE
     );
     const p = result[0];
     expect(p.displayName).toBe(path.basename('/p1'));
-    expect(p.sessions[0].displayName).toBe('My alias');
+    expect(p.sessions[0].displayName).toBe('飞牛内网穿透');
   });
 
   it('sorts sessions within a project by lastTimestamp desc', () => {

@@ -20,8 +20,12 @@ export function truncate(s: string, n = 60): string {
   return s.length <= n ? s : `${s.slice(0, n - 1)}…`;
 }
 
-export function sessionDisplayName(meta: SessionMeta, alias?: string): string {
-  if (alias) return alias;
+export function sessionDisplayName(meta: SessionMeta): string {
+  // Bug 4d：单一主源 = Claude Code 的 custom-title（写入 JSONL）。
+  // 不再读 `state.sessionAliases` / 本地 alias —— 那是 ccsm 自维护
+  // 的副本，跟 CC 的 /rename 冲突。后续 ccsm R 键也直接写 custom-title
+  // 到同一文件，达成「单一来源」。
+  if (meta.customTitle) return meta.customTitle;
   if (meta.lastPrompt) return truncate(meta.lastPrompt);
   if (meta.firstUserMessage) {
     const stripped = stripXmlTags(meta.firstUserMessage);
@@ -50,7 +54,7 @@ export function groupSessions(metas: SessionMeta[], state: AppState): Project[] 
       .sort((a, b) => b.lastTimestamp.localeCompare(a.lastTimestamp))
       .map((m) => ({
         id: m.sessionId,
-        displayName: sessionDisplayName(m, state.sessionAliases[m.sessionId]),
+        displayName: sessionDisplayName(m),
         cwd: m.cwd,
         lastActiveRelative: relativeTime(m.lastTimestamp),
         lastTimestamp: m.lastTimestamp,

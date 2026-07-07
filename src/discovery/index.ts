@@ -16,12 +16,20 @@ const POOL_SIZE = Math.min(4, Math.max(1, os.cpus().length - 1));
  *
  * Per-file failures are logged and skipped — they never abort the scan.
  */
+/**
+ * Bug 4d：runDiscovery 现在同时对外暴露 sessionId → jsonlPath 的映射，
+ * 让 rename onSubmit 能用 sessionId 反查文件路径，把 custom-title 写回 Claude Code 的 JSONL。
+ */
+export type JsonlIndex = Record<string, string>;
+
 export async function runDiscovery(
   rootPath: string,
   onMeta: (meta: SessionMeta) => void,
-): Promise<void> {
+  onParsed?: (parsed: { meta: SessionMeta; jsonlPath: string }) => void,
+): Promise<JsonlIndex> {
   const files = await listJsonlFiles(rootPath);
-  if (files.length === 0) return;
+  const index: JsonlIndex = {};
+  if (files.length === 0) return index;
 
   let cursor = 0;
 
@@ -31,8 +39,11 @@ export async function runDiscovery(
       if (idx >= files.length) return;
       const file = files[idx];
       try {
-        const meta = await parseJsonlFile(file);
-        if (meta) onMeta(meta);
+        const parsed = await parseJsonlFile(file);
+        if (!parsed) continue;
+        index[parsed.meta.sessionId] = parsed.jsonlPath;
+        onMeta(parsed.meta);
+        if (onParsed) onParsed(parsed);
       } catch (err) {
         // C13: per-file fault tolerance — skip, log, keep going.
         // eslint-disable-next-line no-console
@@ -43,6 +54,7 @@ export async function runDiscovery(
 
   const poolSize = Math.min(POOL_SIZE, files.length);
   await Promise.all(Array.from({ length: poolSize }, () => worker()));
+  return index;
 }
 
 /**

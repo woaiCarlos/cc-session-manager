@@ -39,7 +39,7 @@ describe('scanAsync (callback wrapper with progress/done/error events)', () => {
     for (const id of ['x', 'y']) {
       await fs.writeFile(path.join(tmp, `${id}.jsonl`), '');
     }
-    mockedParse.mockImplementation(async (file) => mkMeta(path.basename(file, '.jsonl')));
+    mockedParse.mockImplementation(async (file) => ({ meta: mkMeta(path.basename(file, '.jsonl')), jsonlPath: file }));
 
     const collected: string[] = [];
     const result = await scanAsync(tmp, (m) => collected.push(m.sessionId));
@@ -56,7 +56,7 @@ describe('scanAsync (callback wrapper with progress/done/error events)', () => {
     }
     mockedParse.mockImplementation(async (file) => {
       await new Promise((r) => setTimeout(r, 10));
-      return mkMeta(path.basename(file, '.jsonl'));
+      return { meta: mkMeta(path.basename(file, '.jsonl')), jsonlPath: file };
     });
 
     const progress: Array<{ current: number; total: number }> = [];
@@ -76,7 +76,7 @@ describe('scanAsync (callback wrapper with progress/done/error events)', () => {
 
   it('invokes onDone exactly once when the scan finishes', async () => {
     await fs.writeFile(path.join(tmp, 'one.jsonl'), '');
-    mockedParse.mockImplementation(async (file) => mkMeta(path.basename(file, '.jsonl')));
+    mockedParse.mockImplementation(async (file) => ({ meta: mkMeta(path.basename(file, '.jsonl')), jsonlPath: file }));
 
     const onDone = vi.fn();
     await scanAsync(tmp, undefined, { onDone });
@@ -102,7 +102,7 @@ describe('scanAsync (callback wrapper with progress/done/error events)', () => {
       if (path.basename(file).startsWith('bad')) {
         throw new Error('nope');
       }
-      return mkMeta(path.basename(file, '.jsonl'));
+      return { meta: mkMeta(path.basename(file, '.jsonl')), jsonlPath: file };
     });
     const collected: string[] = [];
     const result = await scanAsync(tmp, (m) => collected.push(m.sessionId));
@@ -115,7 +115,7 @@ describe('scanAsync (callback wrapper with progress/done/error events)', () => {
     await fs.writeFile(path.join(tmp, 'slow.jsonl'), '');
     mockedParse.mockImplementation(async (file) => {
       await new Promise((r) => setTimeout(r, 40));
-      return mkMeta(path.basename(file, '.jsonl'));
+      return { meta: mkMeta(path.basename(file, '.jsonl')), jsonlPath: file };
     });
 
     const scanPromise = scanAsync(tmp);

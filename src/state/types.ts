@@ -11,6 +11,9 @@ export interface SessionMeta {
   cwd: string;
   firstUserMessage: string | null;
   lastPrompt: string | null;
+  /** Bug 4d：Claude Code 通过 JSONL 事件写入的自定义名字（`/rename`）。最新一条获胜。
+   *  ccsm 把它作为显示名的唯一主源，不再维护自己的 alias。 */
+  customTitle?: string;
   lastTimestamp: string; // ISO8601
   sizeBytes: number;
   lineCount: number;
