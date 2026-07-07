@@ -94,7 +94,7 @@
 
 ## 10. 构建与分发
 
-- [ ] 10.1 验证 `npm run build` 产出可工作的 `dist/cli.js` 且 shebang 正确
+- [x] 10.1 验证 `npm run build` 产出可工作的 `dist/cli.js` 且 shebang 正确
 - [ ] 10.2 运行 `npm link` 并验证从新 Terminal 会话可调用 `ccsm`
 - [ ] 10.3 确认 README 安装指引端到端可用
 - [ ] 10.4 添加冒烟测试脚本（`scripts/smoke.sh`），覆盖完整 happy path
