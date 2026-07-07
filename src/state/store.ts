@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs';
+import * as fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { AppState, DEFAULT_STATE } from './types.js';
@@ -51,12 +52,21 @@ export async function loadState(): Promise<AppState> {
 }
 
 export async function saveState(state: AppState): Promise<void> {
+  // Bug 4c：使用 fs.*Sync 同步落盘而不是 fs.promises 的异步版本。
+  // renameSession / setAlias 调用 saveState 后，async fs.writeFile +
+  // fs.rename 是 libuv 内核队列里未完成的工作；若用户在按 Enter 后
+  // 立刻 Ctrl+C 或关闭窗口，cli.tsx 的 handleSignal 会同步调
+  // process.exit(0)，未完成的写入被丢弃。
+  //
+  // 改用同步 API 后，writeFileSync + renameSync 在 saveState 内部同步
+  // 完成；resolve 后数据已经在内核 buffer，进程被 SIGKILL 也已持久化。
+  // API 兼容：仍返回 Promise<void>，await 立即 fulfilled。
   const configDir = resolveConfigDir();
   const statePath = resolveStatePath();
-  await fs.mkdir(configDir, { recursive: true });
+  fsSync.mkdirSync(configDir, { recursive: true });
   const tmp = `${statePath}.tmp.${process.pid}.${Date.now()}`;
-  await fs.writeFile(tmp, JSON.stringify(state, null, 2), 'utf8');
-  await fs.rename(tmp, statePath);
+  fsSync.writeFileSync(tmp, JSON.stringify(state, null, 2), 'utf8');
+  fsSync.renameSync(tmp, statePath);
   cache = state;
 }
 

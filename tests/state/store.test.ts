@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { promises as fs } from 'node:fs';
+import { promises as fs, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DEFAULT_STATE } from '../../src/state/types.js';
@@ -131,5 +131,43 @@ describe('store', () => {
   it('setAlias/getAlias stores project alias keyed by group key (Task 2.6)', async () => {
     await store.setAlias('project', '/Users/carlos/foo', 'Foo project');
     expect(await store.getAlias('project', '/Users/carlos/foo')).toBe('Foo project');
+  });
+
+  // Bug 4c：saveState 必须同步落盘，保证用户在 App.tsx 的 onSubmit 里
+  // 触发 setAlias 之后立刻 Ctrl+C（process.exit 同步执行）也不会丢失
+  // 写入。如果 saveState 是 async（fs.writeFile + fs.rename 未 await），
+  // 进程退出时 write/rename 仍在 libuv 队列里、未真正写到磁盘；
+  // 下次启动读到的就是旧（或空）state.json，列表渲染旧名。
+  it('Bug 4c: saveState writes to disk synchronously — file exists before saveState resolves', async () => {
+    expect(existsSync(store.STATE_PATH)).toBe(false);
+
+    // 发起 saveState，让 microtask 跑一圈；调用返回前同步写盘应当已发生
+    const promise = store.saveState({
+      ...DEFAULT_STATE,
+      sessionAliases: { 'sync-test': '同步落盘名' },
+    });
+
+    // microtask 后立刻验盘（同步版应已落盘；async 版会失败 —— 文件尚不存在）
+    await Promise.resolve();
+    expect(existsSync(store.STATE_PATH)).toBe(true);
+
+    await promise; // 仍满足 Promise contract
+    const content = await fs.readFile(store.STATE_PATH, 'utf8');
+    expect(content).toContain('"sync-test"');
+    expect(content).toContain('"同步落盘名"');
+  });
+
+  // Bug 4c：setAlias（被 renameSession 调用）写完 disk 后立即模拟「quit
+  // + 重启」，从新进程实例 loadState 必须能读到 alias
+  it('Bug 4c: setAlias + immediate quit simulation — re-imported store reads the alias', async () => {
+    // 1) 在本测试的 store 实例上调用 setAlias（内部同步落盘）
+    await store.setAlias('session', 'quit-survive', '飞牛内网穿透');
+
+    // 2) 不在 await 任何进一步工作 —— 模拟 ccsm 进程立刻被 SIGKILL
+    // 3) 新进程的 store 模块（reset cache）从磁盘重新加载
+    vi.resetModules();
+    const freshStore = (await import('../../src/state/store.js')) as unknown as StoreModule;
+    await freshStore.resetForTest();
+    expect(await freshStore.getAlias('session', 'quit-survive')).toBe('飞牛内网穿透');
   });
 });
