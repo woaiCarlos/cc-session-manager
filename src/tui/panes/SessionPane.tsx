@@ -10,6 +10,12 @@ interface Props {
   // searchQuery 非空时只渲染匹配的 session（displayName / cwd / id）。
   // 空串表示不过滤；App 通过 prop drilling 把 state.searchQuery 透传进来。
   searchQuery?: string;
+  /**
+   * Compact mode (窄列布局): omit the `· lastActiveRelative` trailing
+   * timestamp so each row stays single-line. Driven by `useTerminalSize`
+   * in App when `cols < 100`.
+   */
+  compact?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,6 +44,7 @@ export const SessionPane: React.FC<Props> = ({
   focused,
   onSelect,
   searchQuery = '',
+  compact = false,
 }) => {
   // onSelect is wired in a follow-up task (keyboard handlers in App).
   // Marked used via void reference so TS noUnusedParameters doesn't flag it.
@@ -66,7 +73,13 @@ export const SessionPane: React.FC<Props> = ({
             color={sel ? 'cyan' : undefined}
           >
             {sel ? '› ' : '  '}
-            {s.displayName} <Text dimColor>· {s.lastActiveRelative}</Text>
+            {s.displayName}
+            {!compact && (
+              <>
+                {' '}
+                <Text dimColor>· {s.lastActiveRelative}</Text>
+              </>
+            )}
           </Text>
         );
       })}

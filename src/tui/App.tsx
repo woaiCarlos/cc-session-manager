@@ -14,6 +14,7 @@ import { ProjectPane } from './panes/ProjectPane.js';
 import { SessionPane } from './panes/SessionPane.js';
 import { StatusBar } from './components/StatusBar.js';
 import { useKeybindings } from './hooks/useKeybindings.js';
+import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { SearchModal } from './modals/SearchModal.js';
 import { RenameModal } from './modals/RenameModal.js';
 import { SettingsModal } from './modals/SettingsModal.js';
@@ -165,6 +166,11 @@ export const App: React.FC<AppProps> = ({
     projects,
   });
 
+  // 终端尺寸：监听 stdout 'resize'，cols < 100 视为窄列，进入 compact 模式
+  // 让 Pane 省略次要字段（计数 / 时间戳），避免双 pane 布局在窄终端下错位。
+  const { cols } = useTerminalSize();
+  const compact = cols < 100;
+
   useEffect(() => {
     // 启动时挂上扫描回调：发现新 session 派发 SESSION_DISCOVERED；
     // 扫描完成派发 SCAN_COMPLETE。监听器由 cli.tsx 提供的对外闭包挂入，
@@ -275,6 +281,7 @@ export const App: React.FC<AppProps> = ({
             selectedKey={state.selectedProjectKey}
             focused={state.focusedPane === 'projects'}
             onSelect={(k) => dispatch({ type: 'SELECT_PROJECT', key: k })}
+            compact={compact}
           />
         </Box>
         <Box width="60%">
@@ -284,6 +291,7 @@ export const App: React.FC<AppProps> = ({
             focused={state.focusedPane === 'sessions'}
             onSelect={(id) => dispatch({ type: 'SELECT_SESSION', id })}
             searchQuery={state.searchQuery}
+            compact={compact}
           />
         </Box>
       </Box>

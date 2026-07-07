@@ -7,9 +7,21 @@ interface Props {
   selectedKey: string | null;
   focused: boolean;
   onSelect: (key: string) => void;
+  /**
+   * Compact mode (窄列布局): omit secondary fields (`(manual)` marker and
+   * session-count trailing badge) so each row stays single-line. Driven by
+   * `useTerminalSize` in App when `cols < 100`.
+   */
+  compact?: boolean;
 }
 
-export const ProjectPane: React.FC<Props> = ({ projects, selectedKey, focused, onSelect }) => {
+export const ProjectPane: React.FC<Props> = ({
+  projects,
+  selectedKey,
+  focused,
+  onSelect,
+  compact = false,
+}) => {
   // onSelect is wired in a follow-up task (keyboard handlers in App).
   // Marked used via void reference so TS noUnusedParameters doesn't flag it.
   void onSelect;
@@ -34,7 +46,9 @@ export const ProjectPane: React.FC<Props> = ({ projects, selectedKey, focused, o
             color={sel ? 'cyan' : undefined}
           >
             {sel ? '› ' : '  '}
-            {p.displayName} {p.manual ? '(manual)' : ''} ({p.sessions.length})
+            {p.displayName}
+            {!compact && p.manual ? ' (manual)' : ''}
+            {!compact ? ` (${p.sessions.length})` : ''}
           </Text>
         );
       })}
