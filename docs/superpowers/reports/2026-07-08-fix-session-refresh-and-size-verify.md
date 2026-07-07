@@ -187,10 +187,38 @@ if (rec.type === 'custom-title' && ...) {
   - 红绿验证：临时 `git stash push -- src/discovery/parse.ts` → 跑用例 → fail（lastPrompt 是 'older prompt'，customTitle 是 '旧名'）；恢复 → 通过。
 - `waitForFileStable` 由 `tests/cli/cli.test.ts:413-562` 两个用例间接覆盖：测试运行时等待 ~400ms 让 wait 完成（fs.stat 抛 ENOENT → 快路径 → parseJsonlFile → rescan）。
 
+## Bug A 三次回归（用户再次实测）
+
+**根因**：rescanSession 的 jsonlPath 参数来源是 `Session.jsonlPath`。但 `Session.jsonlPath` 由 `SESSION_DISCOVERED` reducer 用 `state.jsonlIndex[meta.sessionId]` 填充，`state.jsonlIndex` 又是 useReducer 初始状态（mount 时取自 jsonlIndex prop）。当 App mount 时 `runDiscovery` 还没完成，prop `jsonlIndex = {}` → `state.jsonlIndex = {}`。runDiscovery 完成后 `cli.tsx` 的闭包 jsonlIndex 已被填充，但 App 没有任何 useEffect 把 prop 推到 `state.jsonlIndex`。结果：
+- 启动时发现的每个 session，`Session.jsonlPath` 都是 undefined
+- 用户按 Enter 恢复 session 时，`resumeSession` 调 `dispatchOpen({ jsonlPath: session.jsonlPath, ... })` → `jsonlPath: undefined`
+- `current.ts` 里的 `if (req.jsonlPath && req.sessionId && deps!.rescanSession)` 守卫命中 → rescan 静默跳过
+- UI 永远不会刷新
+
+**修复链路**（彻底废弃 `jsonlPath` 通过 Session 传递的路径）：
+1. `src/state/types.ts:22-30`：删除 `Session.jsonlPath?` 字段
+2. `src/terminal/terminal-app.ts:38-41`：删除 `OpenRequest.jsonlPath?` 字段（保留 `sessionId?`）
+3. `src/terminal/current.ts:26-36, 90-99`：`CurrentDeps.rescanSession` 签名 `(jsonlPath, sessionId) => void` → `(sessionId) => void`；调用处只传 sessionId
+4. `src/cli.tsx:243-275`：rescanSession 内部用闭包内 `jsonlIndex[sessionId]` 反查 jsonlPath。runDiscovery 是同步写 `index[parsed.meta.sessionId] = parsed.jsonlPath`，扫描完成后 jsonlIndex 一定是稳定填充的。
+5. `src/actions/resumeSession.ts:36-46`：dispatchOpen 不再带 jsonlPath
+6. `src/tui/App.tsx`：删除 `AppProps.jsonlIndex`、`UiState.jsonlIndex`；新增 `AppProps.lookupJsonlPath?: (sessionId) => string | undefined`；rename modal onSubmit 用 callback 取代 jsonlIndex prop
+
+为何 callback 而非 prop：之前 App mount 时拿到的 prop jsonlIndex 是初始空值（runDiscovery 还没跑），而 App 没有 useEffect 同步 prop → state，所以 state.jsonlIndex 永远是空。Callback 是函数引用，每次调用时都从 cli 闭包拿最新值，时序上无 capture 问题。
+
+**自动化验收（红绿验证）**：
+- `tests/cli/cli.test.ts:584-668` 「Bug A 三次回归」用例：
+  - mock runDiscovery 返回 `{sessionId: jsonlPath}` 填充 cli 闭包 index
+  - mock render 立刻调 onSession setter
+  - mock parseJsonlFile 返回新 meta
+  - 调 `rescanSession('sid-from-cli-closure')`（只传 sessionId）
+  - 断言 `parseSpy` 被 cli 闭包的 jsonlPath（不是任何 prop/state）调用
+  - 断言收到的新 meta displayName 来自 cli 闭包 lookup 到的 jsonlPath
+- 红绿验证：`git stash push -- src/cli.tsx src/terminal/current.ts` → 跑用例 → fail（parseSpy 用 undefined 调用，sessionId 还是从 cli 闭包 lookup，但旧的 rescanSession 签名需要 (jsonlPath, sessionId)，jsonlPath 拿不到）；恢复 → pass。
+
 ## 退出条件
 
 - [x] Typecheck / 359 vitest 用例 / tsup build 全绿
-- [x] Bug A 二次回归修复（file-order + waitForFileStable），红绿验证通过
+- [x] Bug A 三次回归修复（彻底废弃 jsonlPath 路径，cli 闭包内 lookup），红绿验证通过
 - [x] build guard `ALL CHECKS PASSED`
 - [x] verify guard `ALL CHECKS PASSED`（已通过 → phase=archive）
 - [x] 验证报告（本文）已生成
