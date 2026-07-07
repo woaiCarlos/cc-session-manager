@@ -439,14 +439,18 @@ export const App: React.FC<AppProps> = ({
           initial={state.modalContext.renameCurrentName ?? ''}
           kind={state.modalContext.renameKind ?? 'session'}
           onSubmit={(newName) => {
-            // Bug 4 修复：原占位 onSubmit 已替换为真落盘。流程：
-            //   1. 校验目标 ID 与新名（非空）
-            //   2. 同步 dispatch CLOSE_MODAL，让用户立刻看到反馈
-            //   3. 异步 await renameSession / renameProject action
-            //      - 成功：dispatch SET_ALIAS → state.projects 中目标行的
-            //        displayName 立即刷新，UI 列出新名；
-            //      - 失败：dispatch NOTICE，错误在 status bar 显示（模态
-            //        已关，避免与 selectedSessionId 已变更的竞态）。
+            // Bug 4b 修复（乐观更新）：把 SET_ALIAS 同步派发，UI 立即更新。
+            // 不再「先关模态 → 异步落盘 → 异步 SET_ALIAS」三段串行 —— 改
+            // 为「同步 SET_ALIAS + 同步 CLOSE_MODAL → 后台异步落盘」。
+            //
+            //   1. 校验 targetId + safeName（非空）
+            //   2. 同步 dispatch SET_ALIAS：state.sessionAliases 写入、目标行
+            //      displayName 立即更新；用户立刻看到新名（无须等磁盘）。
+            //   3. 同步 dispatch CLOSE_MODAL：关闭模态（与 SET_ALIAS 同批
+            //      React 调度，单次 commit）。
+            //   4. 后台异步 renameSessionAction / renameProjectAction 落盘；
+            //      失败时 dispatch NOTICE → status-bar 展示错误（UI 保留
+            //      新名，不滚回；用户可看到失败后重试）。
             const safeName = newName.trim();
             const kind = state.modalContext.renameKind ?? 'session';
             const targetId =
@@ -459,28 +463,27 @@ export const App: React.FC<AppProps> = ({
               dispatch({ type: 'CLOSE_MODAL' });
               return;
             }
+            // 乐观更新：先派 SET_ALIAS（关键），再派 CLOSE_MODAL
+            dispatch({
+              type: 'SET_ALIAS',
+              kind,
+              key: targetId,
+              name: safeName,
+            });
             dispatch({ type: 'CLOSE_MODAL' });
+            // 后台异步落盘；失败仅触发 NOTICE
             const persist =
               kind === 'session'
                 ? renameSessionAction(targetId, safeName)
                 : renameProjectAction(targetId, safeName);
-            void persist
-              .then(() => {
-                dispatch({
-                  type: 'SET_ALIAS',
-                  kind,
-                  key: targetId,
-                  name: safeName,
-                });
-              })
-              .catch((err: unknown) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                dispatch({
-                  type: 'NOTICE',
-                  kind: 'error',
-                  message: `Rename failed: ${msg}`,
-                });
+            void persist.catch((err: unknown) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              dispatch({
+                type: 'NOTICE',
+                kind: 'error',
+                message: `Rename failed: ${msg}`,
               });
+            });
           }}
           onCancel={() => dispatch({ type: 'CLOSE_MODAL' })}
         />
