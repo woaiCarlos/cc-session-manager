@@ -1,5 +1,6 @@
 // 注意：shebang 由 tsup banner (tsup.config.ts) 在 bundle 后注入；源文件不重复声明
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { realpath } from 'node:fs/promises';
 import React, { type ReactElement } from 'react';
 import { render } from 'ink';
 import { App } from './tui/App.js';
@@ -139,13 +140,26 @@ export async function bootstrap(
 }
 
 // Auto-invoke only when this file is run as the main entry. In ESM we
-// distinguish entry vs. import by comparing `import.meta.url` against the
-// path passed to `node` / `tsx` / the tsup-bundled `dist/cli.js`. Tests
-// import `bootstrap` directly and never trigger this branch.
-const isEntry =
-  process.argv[1] !== undefined &&
-  pathToFileURL(process.argv[1]).href === fileURLToPath(import.meta.url);
-if (isEntry) {
-  void bootstrap();
+// distinguish entry vs. import by resolving symlinks on argv[1] and
+// comparing it to `import.meta.url`. The symlink resolution is required
+// because npm-installed `bin` entries (e.g. /opt/homebrew/bin/ccsm →
+// lib/node_modules/cc-session-manager/dist/cli.js) arrive as the symlink
+// path in argv[1], not the real file. Tests import `bootstrap` directly
+// and never trigger this branch.
+async function detectEntry(): Promise<boolean> {
+  if (process.argv[1] === undefined) return false;
+  try {
+    const realArgv = await realpath(process.argv[1]);
+    const realModule = await realpath(fileURLToPath(import.meta.url));
+    return realArgv === realModule;
+  } catch {
+    return false;
+  }
 }
+
+void detectEntry().then((isEntry) => {
+  if (isEntry) {
+    void bootstrap();
+  }
+});
 
