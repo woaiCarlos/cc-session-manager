@@ -42,6 +42,19 @@
 - [x] 3.7 `npm run typecheck && npm test` 全绿；tsup build 成功。
 - [x] 3.8 commit: `fix(tui): rescan session JSONL after Claude Code exit`（并入 hotfix 主提交）
 
+## 3a. Bug A 回归修复（用户实测不刷新）
+
+- [x] 3a.1 用户实测：从 Claude Code 退出后 session 名不刷新；只有重启 ccsm 才刷新。
+- [x] 3a.2 根因定位：`child.on('exit')` 内 render + rescan 的顺序假设 React useEffect 同步注册 onSession，但 useEffect 在下个 macrotask 才跑。如果 `parseJsonlFile` 在 useEffect 之前 resolve，`_onSession` 仍指向旧 wrapper（dispatch 给已 unmount 的旧 reducer），meta 被 React 丢弃。
+- [x] 3a.3 修复 `src/cli.tsx`：引入 `pendingMetas: SessionMeta[]` 队列 + `NOOP_SESSION` 哨兵 + `drainPendingMetas()` 辅助：
+  - `_onSession` 初值改为 `NOOP_SESSION`
+  - `onSession(cb)` setter 调用时 `drainPendingMetas()`（保证新 App mount 时拿回早期 buffered 的 meta）
+  - `rescanSession(...)` 总是 `pendingMetas.push(parsed.meta); drainPendingMetas()`
+- [x] 3a.4 新增 `tests/cli/cli.test.ts:486-562` 「Bug A 回归」用例：mock parseJsonlFile 立即 resolve，mock render 不调 onSession setter，断言 rescan 完成后 meta 仍 buffer；触发 setter 后被 drain 派发。
+- [x] 3a.5 红绿验证：`git stash push -- src/cli.tsx` → 跑该用例 → fail（receivedMetas.length === 0）；`git stash pop` → 跑 → pass。
+- [x] 3a.6 全量 357 用例通过，typecheck + build 全绿。
+- [x] 3a.7 commit: `fix(tui): buffer rescan metas until new App registers onSession (Bug A regression)`
+
 ## 4. 验证 + 报告
 
 - [x] 4.1 `node "$COMET_GUARD" fix-session-refresh-and-size build --apply` 通过

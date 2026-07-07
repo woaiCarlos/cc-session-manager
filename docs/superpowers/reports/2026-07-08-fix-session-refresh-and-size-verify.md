@@ -15,12 +15,13 @@
 | ------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | **Bug B** | `SessionMeta.sizeBytes` 已有但被吞掉；透传 `sizeBytes` 到 `Session`、`SESSION_DISCOVERED` reducer、`groupSessions`；新增 `formatBytes()` 工具；`SessionPane` 在 row 末尾渲染 `· 1.2 KB` | `src/state/types.ts`、`src/grouping/group.ts`、`src/tui/App.tsx`、`src/tui/panes/SessionPane.tsx`、`src/util/formatBytes.ts` |
 | **Bug A** | `'current'` backend 在 `child.on('exit')` 路径上重新解析该 session 的 JSONL（单文件 rescan）并把新 meta 派发到新 App reducer；reducer 命中「同 id」时自动 patch `displayName` / `sizeBytes` / `lastTimestamp` | `src/state/types.ts`、`src/tui/App.tsx`、`src/cli.tsx`、`src/terminal/current.ts`、`src/terminal/terminal-app.ts`、`src/actions/resumeSession.ts` |
+| **Bug A 回归** | 用户实测：rescan 仍不刷新。根因：`child.on('exit')` 顺序 render→rescan 假设 React useEffect 同步注册 onSession，但 useEffect 在下个 macrotask 才跑。修复：cli.tsx 加 `pendingMetas` 队列，rescan 拿到的 meta 先入队，新 App 的 `onSession` setter 触发时 drain | `src/cli.tsx`、`tests/cli/cli.test.ts` |
 
-工作区 diff（本次 hotfix 单提交 `6f14804`）：
+工作区 diff（hotfix 主提交 `6f14804` + 回归修复 `14c0008`）：
 
 ```
  src/actions/resumeSession.ts        |  12 ++-
- src/cli.tsx                         |  17 ++-
+ src/cli.tsx                         |  40 +++++-
  src/grouping/group.ts               |   1 +
  src/state/types.ts                  |  16 ++-
  src/terminal/current.ts             |  21 +++-
@@ -29,13 +30,13 @@
  src/tui/panes/SessionPane.tsx       |  37 ++++--
  src/util/formatBytes.ts             |  35 ++++ (new)
  tests/actions/resumeSession.test.ts |   6 +-
- tests/cli/cli.test.ts               |  71 ++++++++-
+ tests/cli/cli.test.ts               | 161 ++++++++++++++++-
  tests/grouping/group.test.ts        |  11 ++
  tests/terminal/current.test.ts       | 159 ++++++++++++++++++ (new)
  tests/tui/App.test.ts               |  67 +++++++-
  tests/tui/panes/SessionPane.test.ts |  46 +++++-
  tests/util/formatBytes.test.ts      |  47 +++++ (new)
- 16 files changed, 577 insertions(+), 3 deletions(-)
+ 16 files changed, 686 insertions(+), 4 deletions(-)
 ```
 
 ## 验证方法
@@ -46,20 +47,23 @@
    `npm run typecheck` → 0 errors（已通过）
 
 2. **单元测试套件**：  
-   `npm test` → **34 文件 / 356 用例 全绿**（基线 331 用例 + 25 新用例）：
+   `npm test` → **34 文件 / 357 用例 全绿**（基线 331 用例 + 26 新用例）：
    - `tests/util/formatBytes.test.ts` — 10 用例（0 B、999 B、1.0 KB / 1.5 KB / 1023.0 KB 边界、1.0 MB / 2.5 MB、1.0 GB / 5.6 GB、TB 不进位、NaN / 负数 → `"?"`）
    - `tests/tui/panes/SessionPane.test.ts` — `formatRowText` 4 用例（KB、MB、GB、compact 模式、selected marker）
    - `tests/grouping/group.test.ts` — 1 用例（`sizeBytes` 从 SessionMeta 透传到 Session）
    - `tests/tui/App.test.ts` — 3 用例（新 Session 写 `sizeBytes`、rescan 触发 patch `sizeBytes + lastTimestamp`、`jsonlPath` 从 `jsonlIndex` 反查）
-   - `tests/cli/cli.test.ts` — 2 用例（`setCurrentTerminalDeps` 注册 `rescanSession` 函数、rescan 闭包调 `parseJsonlFile` 后通过 `_onSession` 派发新 meta）
+   - `tests/cli/cli.test.ts` — 3 用例（`setCurrentTerminalDeps` 注册 `rescanSession` 函数、rescan 闭包端到端调 `parseJsonlFile` 后派发新 meta、**Bug A 回归**：rescan 完成早于 onSession setter 时 pendingMetas 仍被 drain）
    - `tests/terminal/current.test.ts` — 5 用例（rescan 调用、缺字段 no-op、deps 无 rescan 不抛、child exit code 1 也 rescan、**关键时序：render 先于 rescanSession**）
    - `tests/actions/resumeSession.test.ts` — 既有 2 用例更新 `OpenRequest` 多 `sessionId` / `jsonlPath` 字段
 
 3. **构建**：  
-   `npm run build` → tsup 成功，`dist/cli.js` 44.90 KB（增量 +0.5 KB，含 `formatBytes` 和 rescan 闭包）
+   `npm run build` → tsup 成功，`dist/cli.js` 45.22 KB（增量 +0.8 KB，含 `formatBytes`、rescan 闭包、pendingMetas 缓冲）
 
 4. **build guard**：  
    `node "$COMET_GUARD" fix-session-refresh-and-size build --apply` → ALL CHECKS PASSED（已通过）
+
+5. **回归红绿验证**：  
+   `Bug A 回归` 用例在不含 `pendingMetas` 缓冲的旧代码下确认 fail（`receivedMetas.length === 0`），加入缓冲后恢复 pass。这一红绿循环由 `git stash push -- src/cli.tsx` + `vitest run -t "Bug A 回归"` + `git stash pop` 三步自动验证（已执行）。
 
 ## verify_mode 决策
 
@@ -132,9 +136,36 @@
 - **R5 (OpenRequest 新字段破坏其它 backend 契约)** — `sessionId` / `jsonlPath` 都是 optional；其它 backend（terminal-app / iterm2 / warp）只读 `cwd` / `command`，新增字段不影响。
 - **R6 (commit 把 Bug A + Bug B 合并为一)** — 单提交 `6f14804`，message 内分别描述了两个 bug 的修复链路与根因，便于 review 时分别审视；不违反 hotfix preset（hotfix 允许多 bug 合并提交）。
 
+## Bug A 回归（用户实测）
+
+**根因**：`child.on('exit')` 内顺序：
+
+```ts
+deps.render(deps.createAppElement())           // 同步调 Ink → schedule useEffect
+deps.rescanSession(req.jsonlPath, req.sessionId)  // 同步触发，但内部 await parseJsonlFile
+```
+
+`deps.render(...)` 同步返回，但 React 的 useEffect 在下个 macrotask 才执行（commit 之后异步跑）。如果 `parseJsonlFile` 在 useEffect 跑之前 resolve，`_onSession` 还指向旧 App 的 wrapper（dispatch 给已 unmount 的旧 reducer），meta 被 React 丢弃，新 App 永远看不到。
+
+**修复链路**：
+- `src/cli.tsx:114-148`：
+  - 新增 `pendingMetas: SessionMeta[]` 队列
+  - `_onSession` 初值改为 `NOOP_SESSION` 哨兵（取代空 `() => {}`）
+  - `onSession(cb)` setter 调用时 `drainPendingMetas()`：把队列里的 meta 全部派发给新 wrapper
+  - `rescanSession(jsonlPath, sessionId)` 总是先 `pendingMetas.push(parsed.meta)`，再 `drainPendingMetas()`（如果 setter 已就绪就立即 drain）
+
+**自动化验收（红绿验证）**：
+- `tests/cli/cli.test.ts:486-562` 「Bug A 回归：rescan 在新 App mount 之前完成，meta 仍然派发到新 App (pendingMetas buffer)」：
+  - mock `parseJsonlFile` 在 `await Promise.resolve()` 后立即 resolve（早于任何 React useEffect）
+  - mock `render` **不**立刻调 `onSession` setter（模拟 useEffect 异步）
+  - 调 `rescanSession(...)` → `receivedMetas.length === 0`（buffered）
+  - 触发 onSession setter → `receivedMetas.length === 1` 且 meta 正确
+- 红绿验证：临时 `git stash push -- src/cli.tsx` 后跑该用例 → 失败（`receivedMetas.length === 0`）；恢复 → 通过。
+
 ## 退出条件
 
-- [x] Typecheck / 356 vitest 用例 / tsup build 全绿
+- [x] Typecheck / 357 vitest 用例 / tsup build 全绿
+- [x] Bug A 回归修复（pendingMetas 缓冲），红绿验证通过
 - [x] build guard `ALL CHECKS PASSED`
 - [x] 验证报告（本文）已生成
 - [ ] verify guard 待执行
