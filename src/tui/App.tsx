@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useCallback, useEffect, useReducer } from 'react';
 import { Box, useInput } from 'ink';
 import type {
   AppState,
@@ -14,6 +14,15 @@ import { SessionPane } from './panes/SessionPane.js';
 import { StatusBar } from './components/StatusBar.js';
 import { useKeybindings } from './hooks/useKeybindings.js';
 import { SearchModal } from './modals/SearchModal.js';
+import { RenameModal } from './modals/RenameModal.js';
+import { SettingsModal } from './modals/SettingsModal.js';
+import { HelpModal } from './modals/HelpModal.js';
+import { ConfirmModal } from './modals/ConfirmModal.js';
+import { routeKey } from './keyActionRouter.js';
+import { addManualProject } from '../actions/addManualProject.js';
+import { copySessionId } from '../actions/copySessionId.js';
+import { deleteManualProject } from '../actions/deleteManualProject.js';
+import { release as releaseLock } from '../state/lock.js';
 
 // ---------------------------------------------------------------------------
 // Action 类型
@@ -162,12 +171,11 @@ export const App: React.FC<AppProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Tab / 字母键 / 方向键 / Enter / Esc / Ctrl+C 全部走 useKeybindings。
-  // 当前 onTab / onUp / onDown / onEnter 等副作用由后续 task (7.14~7.16)
-  // 接 selection 与 modal 上下文；此处先传空 no-op 占位以保持 strict 编译。
-  // 注意：useKeybindings 也会响应 `/` 和 `?`，但本组件在下方单独注册了一个
-  // 模态感知的 useInput 来分发 OPEN_MODAL —— useKeybindings 的同名 callback
-  // 保持 no-op，避免重复触发。
+  // Tab / 方向键 / Enter / Esc 由 useKeybindings 处理（onTab/箭头等副作用
+  // 这里仍是 no-op，真正派发只在 useKeybindings 内部的 dispatch——避免与
+  // routeKey 双派发）。所有字母键 / quit 改走下方 useInput + routeKey：
+  // 字母键需要 state.selectedProjectKey 等上下文做条件派发，集中到一个纯
+  // 函数路由更便于单测（tests/tui/keyActionRouter.test.ts）。
   useKeybindings(dispatch as React.Dispatch<any>, {
     onResume: () => {},
     onNew: () => {},
@@ -186,17 +194,44 @@ export const App: React.FC<AppProps> = ({
     onClearSearch: () => {},
   });
 
-  // 模态感知的快捷键入口：仅在 main view（modal === 'none'）生效。
-  // `/` 打开 SearchModal；`?` 打开 HelpModal（HelpModal 在后续 task 接入，
-  // 这里先把派发连上，避免遗漏 OPEN_MODAL 'help' 的覆盖）。
-  // Ink 允许多个 useInput 并存；useKeybindings 内部的 useInput 也会触发，
-  // 但其 onSearch / onHelp 回调已是 no-op，因此不会重复 dispatch。
-  useInput((input) => {
-    if (state.modal !== 'none') return;
-    if (input === '/') dispatch({ type: 'OPEN_MODAL', modal: 'search' });
-    if (input === '?') dispatch({ type: 'OPEN_MODAL', modal: 'help' });
+  // Quit 副作用：释放进程级 lock 后退出。release 来自 src/state/lock.ts，
+  // 当前是 no-op 占位（acquire 侧尚未实装），幂等即可。
+  const onQuit = useCallback(() => {
+    void releaseLock().finally(() => {
+      process.exit(0);
+    });
+  }, []);
+
+  // 复制 / 添加 / 删除的副作用：包成稳定 callback，避免 useInput 反复 re-subscribe。
+  const onCopySession = useCallback((id: string) => {
+    void copySessionId(id).catch(() => {
+      /* copy 失败的 UI 提示由后续 task 接入；此处不抛 */
+    });
+  }, []);
+  const onAddProject = useCallback(() => {
+    void addManualProject().catch(() => {
+      /* 失败提示同样推迟 */
+    });
+  }, []);
+  const onDeleteProject = useCallback((groupKey: string) => {
+    void deleteManualProject(groupKey).catch(() => {
+      /* confirm 模态由 useEscapeToCancel 等其它钩子处理 */
+    });
+  }, []);
+
+  // 模态感知的总入口（main view + confirm 分支）。所有字母键均经
+  // keyActionRouter.routeKey 派发；router 内部已经做了 modal !== 'none'
+  // 的短路以避免穿透模态。
+  useInput((input, key) => {
+    routeKey(state, dispatch, input, key, {
+      onCopySession,
+      onAddProject,
+      onDeleteProject,
+      onQuit,
+    });
   });
 
+  // 选中的 project / 派生 session 列表
   const selectedProject =
     state.projects.find((p) => p.key === state.selectedProjectKey) ?? null;
   const visibleSessions = selectedProject ? selectedProject.sessions : [];
@@ -238,6 +273,49 @@ export const App: React.FC<AppProps> = ({
           onSubmit={(q) => {
             dispatch({ type: 'SET_SEARCH', q });
             dispatch({ type: 'CLOSE_MODAL' });
+          }}
+          onCancel={() => dispatch({ type: 'CLOSE_MODAL' })}
+        />
+      )}
+      {state.modal === 'rename' && (
+        <RenameModal
+          initial={state.modalContext.renameCurrentName ?? ''}
+          kind={state.modalContext.renameKind ?? 'session'}
+          onSubmit={() => {
+            /* 真正写 alias 的派发由 renameProject / renameSession action
+               在后续 task 内联；本任务仅挂 UI 与 keybinding 接线。 */
+            dispatch({ type: 'CLOSE_MODAL' });
+          }}
+          onCancel={() => dispatch({ type: 'CLOSE_MODAL' })}
+        />
+      )}
+      {state.modal === 'settings' && (
+        <SettingsModal
+          state={state}
+          onSubmit={(next) => {
+            // SET_TERMINAL/SESSION_ROOT 等 reducer 路径已有；settings 只
+            // 提交合并视图，App 端逐字段 dispatch 一次 SET_TERMINAL
+            // 和 SCAN_COMPLETE 之外不必再走的分支交给后续 task 7.14+。
+            if (next.terminal) {
+              dispatch({ type: 'SET_TERMINAL', terminal: next.terminal });
+            }
+            dispatch({ type: 'CLOSE_MODAL' });
+          }}
+          onCancel={() => dispatch({ type: 'CLOSE_MODAL' })}
+        />
+      )}
+      {state.modal === 'help' && (
+        <HelpModal onClose={() => dispatch({ type: 'CLOSE_MODAL' })} />
+      )}
+      {state.modal === 'confirm' && (
+        <ConfirmModal
+          prompt={
+            'Delete manual project ' +
+            (state.modalContext.confirmPayload ?? '?') +
+            ' ?'
+          }
+          onConfirm={() => {
+            /* y 键已由 useInput + routeKey 处理；此处仅供 UI 渲染 */
           }}
           onCancel={() => dispatch({ type: 'CLOSE_MODAL' })}
         />
