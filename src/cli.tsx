@@ -1,6 +1,6 @@
 // 注意：shebang 由 tsup banner (tsup.config.ts) 在 bundle 后注入；源文件不重复声明
 import { fileURLToPath } from 'node:url';
-import { realpath } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import React, { type ReactElement } from 'react';
 import { render } from 'ink';
 import { App } from './tui/App.js';
@@ -12,6 +12,57 @@ import { groupSessions } from './grouping/group.js';
 import { tryAcquire, release } from './state/lock.js';
 import { setCurrentTerminalDeps } from './terminal/current.js';
 import type { AppState, Project, SessionMeta } from './state/types.js';
+
+/**
+ * Poll a JSONL file's size until it has been stable for `stableMs` (default
+ * 200ms) or until `maxWaitMs` elapses (default 2s). Returns silently in both
+ * cases — the caller will read whatever the file contains at exit time.
+ *
+ * Bug A 二次回归：claude 在 child.on('exit') 触发时，async 写入 + 用户态
+ * 缓冲可能尚未把最后几条 JSONL event 落盘。如果立刻 parse，rescan 看到
+ * 旧内容，UI 不刷新。修复：等文件大小稳定 200ms 后再 parse，确保读到
+ * 最终内容。最坏 2s 后超时（用户感知的「退出 → 刷新」延迟从 0 升到 ≤ 2s，
+ * 可接受）。
+ *
+ * 边界：文件不存在（ENOENT）时立即返回（parseJsonlFile 自身会处理 null）。
+ */
+async function waitForFileStable(
+  filePath: string,
+  opts: { stableMs?: number; maxWaitMs?: number; pollMs?: number } = {},
+): Promise<void> {
+  const stableMs = opts.stableMs ?? 200;
+  const maxWaitMs = opts.maxWaitMs ?? 2000;
+  const pollMs = opts.pollMs ?? 100;
+  // 文件不存在（首次 stat ENOENT）时立即返回 —— parseJsonlFile 自身会处理
+  // null，rescan 后续自然 no-op。这条快路径也覆盖「用户手动 rm 了文件」
+  // 的边缘场景。
+  try {
+    const initial = await stat(filePath);
+    var initialSize = initial.size;
+  } catch {
+    return;
+  }
+  const start = Date.now();
+  let lastSize: number = initialSize;
+  let stableSince = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    let currentSize: number | null = null;
+    try {
+      const s = await stat(filePath);
+      currentSize = s.size;
+    } catch {
+      // 文件被删除/替换中 —— 视为 size 不变，继续等待
+      currentSize = lastSize;
+    }
+    if (currentSize === lastSize) {
+      if (Date.now() - stableSince >= stableMs) return;
+    } else {
+      stableSince = Date.now();
+      lastSize = currentSize;
+    }
+    await new Promise<void>((r) => setTimeout(r, pollMs));
+  }
+}
 
 /**
  * Optional dependency overrides for `bootstrap`. When a field is omitted,
@@ -190,6 +241,11 @@ export async function bootstrap(
     rescanSession: (jsonlPath: string, sessionId: string) => {
       void (async (): Promise<void> => {
         try {
+          // Bug A 二次回归：claude 的 /rename 在 child.on('exit') 触发时
+          // 可能还没把 custom-title event 落盘（async 写入 + 缓冲）。如果
+          // 立刻读，parseJsonlFile 看到的是旧内容。修复：轮询 file size，
+          // 等它稳定 200ms 后再 parse。最长等 2s（典型 < 100ms 即可稳定）。
+          await waitForFileStable(jsonlPath);
           const parsed = await parseJsonlFile(jsonlPath);
           if (parsed && parsed.meta.sessionId === sessionId) {
             // Bug A 回归修复：buffer 到 pendingMetas，等新 App 的

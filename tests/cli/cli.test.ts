@@ -445,6 +445,12 @@ describe('cli bootstrap', () => {
         jsonlPath: '/data/sid-fresh.jsonl',
       });
 
+    // 等待 waitForFileStable (~200ms 当文件不存在时 stat 抛错，但被 catch
+    // 后 currentSize = -1 视为稳定，再 200ms 后返回) + parseJsonlFile microtask。
+    // 不 mock fs.stat 是因为 node:fs/promises 的 stat 是 non-configurable
+    // getter，Object.defineProperty 会抛 "Cannot redefine property"。
+    const WAIT_MS = 400;
+
     try {
       const deps = makeDeps({
         render: vi.fn((element: unknown) => {
@@ -465,8 +471,8 @@ describe('cli bootstrap', () => {
       // 模拟 'current' backend 在 child exit 后调用 rescan
       registeredRescan!('/data/sid-fresh.jsonl', 'sid-fresh');
 
-      // 等待 async parseJsonlFile microtask
-      await new Promise((r) => setTimeout(r, 10));
+      // 等待 waitForFileStable + async parseJsonlFile microtask
+      await new Promise((r) => setTimeout(r, WAIT_MS));
 
       expect(parseSpy).toHaveBeenCalledWith('/data/sid-fresh.jsonl');
       expect(receivedMetas).toHaveLength(1);
@@ -521,6 +527,12 @@ describe('cli bootstrap', () => {
         };
       });
 
+    // 等待 waitForFileStable (~200ms 当文件不存在时 stat 抛错，但被 catch
+    // 后 currentSize = -1 视为稳定，再 200ms 后返回) + parseJsonlFile microtask。
+    // 不 mock fs.stat 是因为 node:fs/promises 的 stat 是 non-configurable
+    // getter，Object.defineProperty 会抛 "Cannot redefine property"。
+    const WAIT_MS = 400;
+
     try {
       const receivedMetas: SessionMeta[] = [];
       const deps = makeDeps({
@@ -544,8 +556,8 @@ describe('cli bootstrap', () => {
       // 1) 'current' backend 在 child exit 后调用 rescan（早于任何 useEffect）
       registeredRescan!('/data/sid-pending.jsonl', 'sid-pending');
 
-      // 2) 等 parseJsonlFile 的 await 跑完，但此时还没有 onSession setter
-      await new Promise((r) => setTimeout(r, 10));
+      // 2) 等 waitForFileStable + parseJsonlFile microtask
+      await new Promise((r) => setTimeout(r, WAIT_MS));
       expect(receivedMetas).toHaveLength(0); // pendingMetas 应 buffer 住
 
       // 3) React 在下个 macrotask 跑 useEffect → 调 onSession setter

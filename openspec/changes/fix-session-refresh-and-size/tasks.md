@@ -55,6 +55,17 @@
 - [x] 3a.6 全量 357 用例通过，typecheck + build 全绿。
 - [x] 3a.7 commit: `fix(tui): buffer rescan metas until new App registers onSession (Bug A regression)`
 
+## 3b. Bug A 二次回归（parse.ts 时间戳比较丢更新）
+
+- [x] 3b.1 用户实测：仍然不刷新；size 显示正常。重启 ccsm 后才看到新名。
+- [x] 3b.2 根因定位：`src/discovery/parse.ts` 的 `customTitle` / `lastPrompt` 用 `if (rec.timestamp >= lastTimestamp)` 决定是否覆盖。`lastTimestamp` 是文件中**任意 event** 的最大 ts。如果 claude 写入新 `custom-title` event 的 ts 早于文件中已有的最后一条 regular event（claude 可能复用 session start ts，或先写 regular event 再写 custom-title），新 custom-title 会被视为「陈旧」丢弃。
+- [x] 3b.3 修复 `src/discovery/parse.ts`：把 `customTitle` 和 `lastPrompt` 改为 file-order 语义（JSONL 是 append-only，最后一条 = 最新），不再比较 timestamp。`lastTimestamp` 仍按 ts 取最大（用于决定 `sessionList` 排序）。
+- [x] 3b.4 新增 `tests/discovery/parse.test.ts:117-154` 二次回归 2 用例（custom-title 和 last-prompt 各 1）：新 event 的 ts 早于 lastTimestamp 仍应胜出。
+- [x] 3b.5 红绿验证：`git stash push -- src/discovery/parse.ts` → 跑二次回归 → fail（lastPrompt 是 'older prompt' 而不是 'newer prompt'）；恢复 → pass。
+- [x] 3b.6 修复 `src/cli.tsx` 的 `waitForFileStable`：在 parseJsonlFile 之前等文件大小稳定 200ms（默认），让 claude 的 async 写入完成落盘；最长 2s 超时。文件不存在（ENOENT）时立即返回 —— parseJsonlFile 自身处理 null。首次 stat ENOENT 走快路径，避免 2s 等待。
+- [x] 3b.7 全量 359 用例通过，typecheck + build 全绿。
+- [x] 3b.8 commit: `fix(discovery): use file-order for customTitle / lastPrompt; waitForFileStable before rescan (Bug A 2nd regression)`
+
 ## 4. 验证 + 报告
 
 - [x] 4.1 `node "$COMET_GUARD" fix-session-refresh-and-size build --apply` 通过

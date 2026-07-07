@@ -75,21 +75,23 @@ export async function parseJsonlFile(
       firstUserMessage = readContentString(rec.message?.content);
     }
     if (rec.type === 'last-prompt' && typeof rec.lastPrompt === 'string') {
-      // Prefer the latest last-prompt by timestamp; same-timestamp events
-      // use last-write-wins so re-recording a prompt keeps the freshest one.
-      if (!rec.timestamp || !lastTimestamp || rec.timestamp >= lastTimestamp) {
-        lastPrompt = rec.lastPrompt;
-      }
+      // File-order wins: JSONL is append-only, so the latest line is the
+      // most recent event regardless of timestamp. Older code compared by
+      // timestamp which broke the rescan-on-exit flow: claude could write
+      // a new last-prompt with a stale timestamp (or after a newer regular
+      // event landed), causing the prompt update to be silently dropped.
+      lastPrompt = rec.lastPrompt;
     }
-    // Bug 4d：custom-title 与 last-prompt 同优先级「取最新」，按 timestamp 比较
     if (
       rec.type === 'custom-title' &&
       typeof rec.customTitle === 'string' &&
       rec.customTitle.length > 0
     ) {
-      if (!rec.timestamp || !lastTimestamp || rec.timestamp >= lastTimestamp) {
-        customTitle = rec.customTitle;
-      }
+      // Same rationale as lastPrompt above: file-order wins. The Bug A
+      // rescan hook needs to pick up the latest custom-title even when
+      // claude's timestamp on the new event is older than the latest
+      // regular event timestamp in the file.
+      customTitle = rec.customTitle;
     }
     if (typeof rec.timestamp === 'string') {
       if (!lastTimestamp || rec.timestamp > lastTimestamp) lastTimestamp = rec.timestamp;
