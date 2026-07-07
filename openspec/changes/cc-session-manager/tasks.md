@@ -57,7 +57,7 @@
 
 ## 7. TUI 界面
 
-- [ ] 7.1 实现 `src/tui/App.tsx` 根 Ink 组件，使用 `useReducer` 管理状态
+- [x] 7.1 实现 `src/tui/App.tsx` 根 Ink 组件，使用 `useReducer` 管理状态
 - [ ] 7.2 实现 `src/tui/panes/ProjectPane.tsx`，含垂直列表、当前选中高亮、滚动处理
 - [ ] 7.3 实现 `src/tui/panes/SessionPane.tsx`，结构与 ProjectPane 对称
 - [ ] 7.4 实现 `src/tui/hooks/useKeybindings.ts`，将键位表映射为派发的 action
