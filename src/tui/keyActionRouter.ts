@@ -118,6 +118,10 @@ export function routeKey(
   // Enter：在 session pane 上恢复选中的 session；在 project pane 上把焦点
   // 移到 session pane（design doc §3.2 / §3.5）。Enter 由 routeKey 独占处理，
   // useKeybindings 的 onEnter 在 App 内为 no-op，避免双 dispatch。
+  //
+  // 关键：若 project pane 上 selectedProjectKey 未设（如刚启动从未按 ↓），
+  // Enter 应同时 SELECT 第一个 project 再切焦点，否则 sessions pane 渲染
+  // 空列表（visibleSessions = []），用户无法选 session。
   if (key.return) {
     if (
       state.focusedPane === 'sessions' &&
@@ -128,6 +132,10 @@ export function routeKey(
         .find((s) => s.id === state.selectedSessionId);
       if (sess) opts.onResumeSession(sess);
     } else if (state.focusedPane === 'projects') {
+      // 若未选 project，先选第一个；同时切焦点
+      if (state.selectedProjectKey === null && state.projects.length > 0) {
+        dispatch({ type: 'SELECT_PROJECT', key: state.projects[0]!.key });
+      }
       dispatch({ type: 'FOCUS_PANE', pane: 'sessions' });
     }
     return;
