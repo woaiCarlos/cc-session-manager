@@ -124,6 +124,34 @@
 
 修复后：`tests/tui/keyActionRouter.test.ts (33 tests)` 全绿；全量 32 文件 / 325 用例通过；tsup build 成功。
 
+## 新增 commit：Bug 4b 修复（乐观更新）
+
+用户连续反馈「改了名但列表还是长文案」。已经做过验证的环节：
+- `renameSession` action 程序化调用 → state.json 出现 `"sessionAliases": {"sess-1": "飞牛内网穿透"}`
+- 集成测试 `tests/tui/renameFlow.test.ts` 走完整 reducer 路径 → displayName 正确更新
+- bundle `dist/cli.js` 含 `renameSession(targetId ...)` / `SET_ALIAS` / `renameProject(targetId ...)`，且跟 `/opt/homebrew/bin/ccsm`（符号链接）MD5 相同
+- 类型定义 `renameTargetId?: string` 在 ModalContext 中已就位
+
+最可能的原因是 `.then()` 回调在某些 TTY/Ink 异步路径下没及时跑通 —— `onSubmit` 把 SET_ALIAS 放在 `await renameSessionAction(...)` 之后，导致「列表还是旧」。
+
+**改动**（最小）：
+- `src/tui/App.tsx` rename modal `onSubmit` 改为：
+  1. 校验 `targetId` / `safeName`
+  2. **同步** dispatch `SET_ALIAS`（UI 立刻刷新，不管后续落盘）
+  3. **同步** dispatch `CLOSE_MODAL`
+  4. 后台异步 `renameSessionAction` / `renameProjectAction` 落盘
+  5. 失败时 dispatch `NOTICE`（status-bar 报告错误，不滚回 UI）
+
+`tests/tui/renameFlow.test.ts` 加 2 个场景：
+- dispatch 顺序测试：assert onSubmit 顺序为 `['SET_ALIAS', 'CLOSE_MODAL']`
+- persist 失败测试：模拟 action 抛错，断言 `SET_ALIAS` 仍生效、`NOTICE` 落地、state 不滚回
+
+**Commit:** `b602998 fix(tui): optimistic SET_ALIAS dispatch before persist`
+
+修复后：33 文件 / **334 用例**通过；tsup build 成功（dist/cli.js 42.32 KB）。
+
+---
+
 ## 新增 commit：Bug 4 修复（重命名数据闭环）
 
 用户报告第 4 个 bug：明明重命名成功了，但 session 名称在列表里没正确显示（典型：「飞牛内网穿透」改完仍看原名）。已并入本次 change，再次 rewind → build → fix → verify。
