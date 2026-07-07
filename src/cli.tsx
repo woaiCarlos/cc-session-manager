@@ -7,6 +7,7 @@ import { App } from './tui/App.js';
 import { loadState } from './state/store.js';
 import { detectRoot } from './discovery/detectRoot.js';
 import { runDiscovery } from './discovery/index.js';
+import { parseJsonlFile } from './discovery/parse.js';
 import { groupSessions } from './grouping/group.js';
 import { tryAcquire, release } from './state/lock.js';
 import { setCurrentTerminalDeps } from './terminal/current.js';
@@ -155,12 +156,29 @@ export async function bootstrap(
   // 并在原 terminal 跑 `claude --resume <id>`，退出后再恢复 Ink。把 render
   // 句柄注册给 current backend，cli 退出时清空。re-render 也带同样的
   // `exitOnCtrlC: false` 以保持行为一致。
+  //
+  // Bug A：rescanSession 在 child.on('exit') 路径上调用，重新解析该
+  // session 的 JSONL 并通过 _onSession 派发到当前（已 remount）的新 App
+  // 实例。rescan 失败时 swallow + console.error，不抛回 current.ts。
   setCurrentTerminalDeps({
     unmount: () => unmount(),
     createAppElement: () => createAppElement(latestProjects),
     render: (el) => {
       const r = _render(el, { exitOnCtrlC: false });
       return { rerender: r.rerender, unmount: r.unmount };
+    },
+    rescanSession: (jsonlPath: string, sessionId: string) => {
+      void (async (): Promise<void> => {
+        try {
+          const parsed = await parseJsonlFile(jsonlPath);
+          if (parsed && parsed.meta.sessionId === sessionId) {
+            _onSession(parsed.meta);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('[rescan] failed:', jsonlPath, err);
+        }
+      })();
     },
   });
 

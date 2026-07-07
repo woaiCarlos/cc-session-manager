@@ -385,4 +385,96 @@ describe('cli bootstrap', () => {
     // cli 不再手动 rerender
     expect(renderInstance.rerender).not.toHaveBeenCalled();
   });
+
+  it('registers a rescanSession closure via setCurrentTerminalDeps (Bug A)', async () => {
+    // Bug A：'current' backend 在 child.on('exit') 路径上调用 rescanSession
+    // 重新解析该 session 的 JSONL 并通过 _onSession 派发到新 App 实例。
+    // 这里断言 setCurrentTerminalDeps 收到的 deps 包含 rescanSession 函数。
+    const renderInstance = { unmount: vi.fn(), rerender: vi.fn() };
+    const deps = makeDeps({
+      render: vi.fn(() => renderInstance),
+      runDiscovery: vi.fn(async () => {}),
+    });
+
+    const terminal = await import('../../src/terminal/current.js');
+    const setDepsSpy = vi.spyOn(terminal, 'setCurrentTerminalDeps');
+
+    try {
+      await bootstrap(deps);
+      const calls = setDepsSpy.mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const passed = calls[0]![0] as { rescanSession?: unknown };
+      expect(typeof passed.rescanSession).toBe('function');
+    } finally {
+      setDepsSpy.mockRestore();
+    }
+  });
+
+  it('rescanSession closure invokes _onSession with the freshly parsed meta (Bug A)', async () => {
+    // Bug A 端到端：'current' backend 调 rescanSession → cli 用 parseJsonlFile
+    // 重读 JSONL → 通过 _onSession 派发到当前 App reducer → UI 自动更新。
+    // 这里我们 mock parseJsonlFile 让它返回新 meta，再捕获 _onSession 收到的
+    // 内容。
+    const receivedMetas: SessionMeta[] = [];
+    const renderInstance = { unmount: vi.fn(), rerender: vi.fn() };
+
+    let registeredRescan: ((jsonlPath: string, sessionId: string) => void) | null =
+      null;
+
+    const terminal = await import('../../src/terminal/current.js');
+    const setDepsSpy = vi.spyOn(terminal, 'setCurrentTerminalDeps').mockImplementation(
+      (d) => {
+        const captured = d as { rescanSession?: (jsonlPath: string, sessionId: string) => void };
+        registeredRescan = captured.rescanSession ?? null;
+      },
+    );
+
+    const parseSpy = vi
+      .spyOn(await import('../../src/discovery/parse.js'), 'parseJsonlFile')
+      .mockResolvedValue({
+        meta: {
+          sessionId: 'sid-fresh',
+          cwd: '/p1',
+          firstUserMessage: null,
+          lastPrompt: null,
+          customTitle: '新名字',
+          lastTimestamp: '2026-07-07T01:00:00.000Z',
+          sizeBytes: 9999,
+          lineCount: 99,
+        },
+        jsonlPath: '/data/sid-fresh.jsonl',
+      });
+
+    try {
+      const deps = makeDeps({
+        render: vi.fn((element: unknown) => {
+          const props = (element as { props: Record<string, unknown> }).props;
+          if (typeof props.onSession === 'function') {
+            // 模拟 App useEffect mount：把 onSession setter 注入 cli 闭包
+            const cb = props.onSession as (cb: (m: SessionMeta) => void) => void;
+            cb((m) => receivedMetas.push(m));
+          }
+          return renderInstance;
+        }),
+        runDiscovery: vi.fn(async () => {}),
+      });
+
+      await bootstrap(deps);
+      expect(registeredRescan).not.toBeNull();
+
+      // 模拟 'current' backend 在 child exit 后调用 rescan
+      registeredRescan!('/data/sid-fresh.jsonl', 'sid-fresh');
+
+      // 等待 async parseJsonlFile microtask
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(parseSpy).toHaveBeenCalledWith('/data/sid-fresh.jsonl');
+      expect(receivedMetas).toHaveLength(1);
+      expect(receivedMetas[0]!.customTitle).toBe('新名字');
+      expect(receivedMetas[0]!.sizeBytes).toBe(9999);
+    } finally {
+      setDepsSpy.mockRestore();
+      parseSpy.mockRestore();
+    }
+  });
 });

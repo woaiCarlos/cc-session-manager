@@ -31,6 +31,14 @@ const exec = promisify(execFile);
 export interface OpenRequest {
   cwd: string;
   command: string;
+  /**
+   * Optional session context, populated by `resumeSession` so the 'current'
+   * backend can re-scan this session's JSONL after the child exits (Bug A:
+   * refresh session metadata on resume-exit). Other backends ignore these
+   * fields; making them optional keeps the dispatcher interface stable.
+   */
+  sessionId?: string;
+  jsonlPath?: string;
 }
 
 /**

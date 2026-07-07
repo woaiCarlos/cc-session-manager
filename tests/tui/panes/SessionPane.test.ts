@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { filterSessions } from '../../../src/tui/panes/SessionPane.js';
+import {
+  filterSessions,
+  formatRowText,
+} from '../../../src/tui/panes/SessionPane.js';
 import type { Session } from '../../../src/state/types.js';
 
 // ---------------------------------------------------------------------------
@@ -13,6 +16,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     cwd: '/Users/alice/work',
     lastActiveRelative: '5m ago',
     lastTimestamp: '2026-07-07T00:00:00.000Z',
+    sizeBytes: 2048,
     ...overrides,
   };
 }
@@ -126,5 +130,35 @@ describe('filterSessions — dedup', () => {
     const out = filterSessions([sessionA], 'login');
     expect(out).toHaveLength(1);
     expect(out[0]).toBe(sessionA);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatRowText — Bug B：行末展示 session JSONL 大小（人类可读）
+// ---------------------------------------------------------------------------
+
+describe('formatRowText — size display', () => {
+  it('appends `· <size>` after the relative timestamp in non-compact mode', () => {
+    const s = makeSession({ displayName: 'login bug fix', sizeBytes: 2048 });
+    const text = formatRowText(s, false, false);
+    expect(text).toBe('  login bug fix · 5m ago · 2.0 KB');
+  });
+
+  it('uses "› " cursor when the session is selected', () => {
+    const s = makeSession({ sizeBytes: 1024 });
+    expect(formatRowText(s, true, false)).toBe(
+      '› login bug fix · 5m ago · 1.0 KB',
+    );
+  });
+
+  it('omits size in compact mode (cols < 100)', () => {
+    const s = makeSession({ sizeBytes: 1024 * 1024 });
+    expect(formatRowText(s, false, true)).toBe('  login bug fix');
+    expect(formatRowText(s, true, true)).toBe('› login bug fix');
+  });
+
+  it('formats GB-scale sessions correctly', () => {
+    const s = makeSession({ sizeBytes: 5.6 * 1024 * 1024 * 1024 });
+    expect(formatRowText(s, false, false)).toBe('  login bug fix · 5m ago · 5.6 GB');
   });
 });

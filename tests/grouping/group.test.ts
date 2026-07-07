@@ -101,4 +101,18 @@ describe('groupSessions', () => {
     expect(result[1].cwd).toBe(path.resolve('/auto'));
     expect(result[2].cwd).toBe(path.resolve('/auto2'));
   });
+
+  it('propagates sizeBytes from SessionMeta into Session (Bug B)', () => {
+    const result = groupSessions(
+      [
+        s({ sessionId: 'a', cwd: '/p1', sizeBytes: 4096 }),
+        s({ sessionId: 'b', cwd: '/p1', sizeBytes: 2 * 1024 * 1024 }),
+      ],
+      DEFAULT_STATE
+    );
+    const p1 = result.find((p) => p.cwd === '/p1')!;
+    const byId = Object.fromEntries(p1.sessions.map((sess) => [sess.id, sess]));
+    expect(byId.a!.sizeBytes).toBe(4096);
+    expect(byId.b!.sizeBytes).toBe(2 * 1024 * 1024);
+  });
 });

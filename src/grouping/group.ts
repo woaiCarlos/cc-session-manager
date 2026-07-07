@@ -58,6 +58,7 @@ export function groupSessions(metas: SessionMeta[], state: AppState): Project[] 
         cwd: m.cwd,
         lastActiveRelative: relativeTime(m.lastTimestamp),
         lastTimestamp: m.lastTimestamp,
+        sizeBytes: m.sizeBytes,
       }));
     projects.push({
       key,

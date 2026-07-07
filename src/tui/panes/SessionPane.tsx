@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Session } from '../../state/types.js';
+import { formatBytes } from '../../util/formatBytes.js';
 
 interface Props {
   sessions: Session[];
@@ -36,6 +37,26 @@ export function filterSessions(sessions: Session[], q: string): Session[] {
       s.cwd.toLowerCase().includes(needle) ||
       s.id.toLowerCase().startsWith(needle)
   );
+}
+
+/**
+ * Pure row-text builder for a single session. Extracted so tests can
+ * assert the size-string shape without spinning up an Ink renderer.
+ * `compact = true` (cols < 100) drops the relative-time and byte-size
+ * trailing segments; otherwise they both render with `· ` separators.
+ *
+ * Examples (sizeBytes = 2048):
+ *   formatRowText({ ...session, sizeBytes: 2048 }, true) === "› login bug fix"
+ *   formatRowText({ ...session, sizeBytes: 2048 }, false) === "› login bug fix · 5m ago · 2.0 KB"
+ */
+export function formatRowText(
+  session: Session,
+  selected: boolean,
+  compact: boolean,
+): string {
+  const head = selected ? '› ' : '  ';
+  if (compact) return `${head}${session.displayName}`;
+  return `${head}${session.displayName} · ${session.lastActiveRelative} · ${formatBytes(session.sizeBytes)}`;
 }
 
 export const SessionPane: React.FC<Props> = ({
@@ -78,6 +99,8 @@ export const SessionPane: React.FC<Props> = ({
               <>
                 {' '}
                 <Text dimColor>· {s.lastActiveRelative}</Text>
+                {' '}
+                <Text dimColor>· {formatBytes(s.sizeBytes)}</Text>
               </>
             )}
           </Text>

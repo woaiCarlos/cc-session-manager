@@ -22,6 +22,14 @@ interface CurrentDeps {
   unmount: () => void;
   createAppElement: () => ReactElement;
   render: (el: ReactElement) => { rerender: (el: ReactElement) => void; unmount: () => void };
+  /**
+   * Bug A：触发 session 元数据重新扫描的钩子。cli.tsx 在 bootstrap 内
+   * 定义并通过 setCurrentTerminalDeps 注入；调用时机在 Ink remount 之后
+   * 以避免派发到旧 App 实例。callback 接受被 resume session 的
+   * jsonlPath 与 sessionId，由 cli 调 parseJsonlFile 然后通过 onMeta
+   * 推回 reducer。rescan 失败时 cli 内部 swallow 并 console.error。
+   */
+  rescanSession?: (jsonlPath: string, sessionId: string) => void;
 }
 
 let deps: CurrentDeps | null = null;
@@ -88,6 +96,17 @@ export function current(req: OpenRequest): Promise<void> {
         deps!.render(deps!.createAppElement());
       } catch {
         /* best-effort */
+      }
+      // 5. Bug A：让 cli 重新扫描该 session 的 JSONL，把最新 meta 派发到
+      //    新 App 实例。rescan 在 render 之后调用——这样 _onSession 已经
+      //    被新 App 的 useEffect 接管，meta 会被新 reducer 收到并刷新
+      //    displayName / sizeBytes / lastTimestamp。
+      if (req.jsonlPath && req.sessionId && deps!.rescanSession) {
+        try {
+          deps!.rescanSession(req.jsonlPath, req.sessionId);
+        } catch {
+          /* rescan 失败是 best-effort */
+        }
       }
       if (code === 0) {
         resolve();

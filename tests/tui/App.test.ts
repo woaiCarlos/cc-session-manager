@@ -427,6 +427,62 @@ describe('App reducer — SESSION_DISCOVERED', () => {
     expect(next.projects[0]!.sessions).toHaveLength(1);
     expect(next.projects[0]!.sessions[0]!.displayName).toBe('飞牛内网穿透');
   });
+
+  it('Bug B: stores meta.sizeBytes on the new Session row', () => {
+    const meta = makeMeta({ sessionId: 'sized', cwd: '/p1', sizeBytes: 4096 });
+    const after = reducer(baseState(), { type: 'SESSION_DISCOVERED', meta });
+    expect(after.projects[0]!.sessions[0]!.sizeBytes).toBe(4096);
+  });
+
+  it('Bug A: re-discovering with a fresh sizeBytes / lastTimestamp patches the row in place', () => {
+    // 模拟 'current' backend rescan：claude 退出后 JSONL 变大、最后事件
+    // 时间更新；reducer 必须 patch 已有 row 的 sizeBytes + lastTimestamp，
+    // 让 SessionPane 立刻反映「文件已增长」+「时间已更新」。
+    const proj = makeProject({
+      key: '/p1',
+      sessions: [
+        {
+          id: 'sess-1',
+          displayName: 'something',
+          cwd: '/p1',
+          lastActiveRelative: '2026-07-07T00:00:00Z',
+          lastTimestamp: '2026-07-07T00:00:00Z',
+          sizeBytes: 1024,
+        } as Session,
+      ],
+    });
+    const seed = { ...baseState(), projects: [proj] };
+    const next = reducer(seed, {
+      type: 'SESSION_DISCOVERED',
+      meta: {
+        sessionId: 'sess-1',
+        cwd: '/p1',
+        firstUserMessage: 'something',
+        lastPrompt: null,
+        lastTimestamp: '2026-07-07T00:30:00Z',
+        sizeBytes: 8192,
+        lineCount: 99,
+      },
+    });
+    expect(next.projects[0]!.sessions).toHaveLength(1);
+    const row = next.projects[0]!.sessions[0]!;
+    expect(row.sizeBytes).toBe(8192);
+    expect(row.lastTimestamp).toBe('2026-07-07T00:30:00Z');
+  });
+
+  it('Bug A: records jsonlPath from jsonlIndex on the Session', () => {
+    const meta = makeMeta({ sessionId: 'sess-with-jsonl', cwd: '/p1' });
+    const seed = {
+      ...baseState(),
+      jsonlIndex: {
+        'sess-with-jsonl': '/data/cc/sess-with-jsonl.jsonl',
+      },
+    };
+    const after = reducer(seed, { type: 'SESSION_DISCOVERED', meta });
+    expect(after.projects[0]!.sessions[0]!.jsonlPath).toBe(
+      '/data/cc/sess-with-jsonl.jsonl',
+    );
+  });
 });
 
 describe('App reducer — NOTICE', () => {

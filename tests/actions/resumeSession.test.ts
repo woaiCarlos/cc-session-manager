@@ -20,6 +20,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     cwd: '/Users/alice/code/my-app',
     lastActiveRelative: '2h ago',
     lastTimestamp: '2026-07-07T10:00:00.000Z',
+    sizeBytes: 0,
     ...overrides,
   };
 }
@@ -45,6 +46,8 @@ describe('resumeSession', () => {
     expect(mockedDispatchOpen).toHaveBeenCalledWith('iterm2', {
       cwd: '/Users/bob/work/proj',
       command: 'claude --resume sess-xyz-42',
+      sessionId: 'sess-xyz-42',
+      jsonlPath: undefined,
     });
   });
 
@@ -81,6 +84,8 @@ describe('resumeSession', () => {
     expect(mockedDispatchOpen).toHaveBeenCalledWith('terminal', {
       cwd: session.cwd,
       command: 'claude --resume weird id with spaces & symbols',
+      sessionId: 'weird id with spaces & symbols',
+      jsonlPath: undefined,
     });
   });
 });

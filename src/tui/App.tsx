@@ -74,6 +74,12 @@ export interface UiState extends AppState {
   bootstrapError: string | null;
   // 派生：搜索过滤后的 session（由后续 task 填充计算逻辑；当前占位保留）
   filteredSessions: import('../state/types.js').Session[];
+  /**
+   * sessionId → jsonlPath 映射，由 cli.tsx 在 runDiscovery 完成后注入。
+   * SESSION_DISCOVERED reducer 用它把 jsonlPath 写入 Session，给 Bug A
+   * 的 'current' backend rescan 钩子定位文件。
+   */
+  jsonlIndex?: Record<string, string>;
 }
 
 export const initialState: UiState = {
@@ -90,6 +96,7 @@ export const initialState: UiState = {
   lastAction: null,
   bootstrapError: null,
   filteredSessions: [],
+  jsonlIndex: undefined,
 };
 
 // ---------------------------------------------------------------------------
@@ -123,21 +130,32 @@ export function reducer(state: UiState, action: Action): UiState {
       const meta = action.meta;
       const projects = state.projects.slice();
       const displayName = deriveDisplayName(meta);
+      // jsonlIndex is provided via App props (cli.tsx builds it during
+      // runDiscovery). For Bug A the 'current' backend rescan needs to
+      // know where to re-parse; we record it on the Session.
+      const jsonlPath = state.jsonlIndex?.[meta.sessionId];
       const newSession: Session = {
         id: meta.sessionId,
         displayName,
         cwd: meta.cwd,
         lastActiveRelative: meta.lastTimestamp,
         lastTimestamp: meta.lastTimestamp,
+        sizeBytes: meta.sizeBytes,
+        jsonlPath,
       };
       const idx = projects.findIndex((p) => p.key === meta.cwd);
       if (idx >= 0) {
         const proj = projects[idx]!;
         // 去重：同 id 已存在则跳过
         if (proj.sessions.some((s) => s.id === newSession.id)) {
-          // 但若这条 meta 携带更新的 customTitle，也要 patch（rename 后重启 ccsm 的场景）
+          // 但若这条 meta 携带更新的 displayName / sizeBytes，也要 patch
+          // （rename 后重启 ccsm 的场景；以及 Bug A 'current' rescan 路径）
           const existing = proj.sessions.find((s) => s.id === newSession.id)!;
-          if (newSession.displayName !== existing.displayName) {
+          if (
+            newSession.displayName !== existing.displayName ||
+            newSession.sizeBytes !== existing.sizeBytes ||
+            newSession.lastTimestamp !== existing.lastTimestamp
+          ) {
             const nextSessions = proj.sessions.map((s) =>
               s.id === newSession.id ? newSession : s,
             );
@@ -279,6 +297,7 @@ export const App: React.FC<AppProps> = ({
     ...initialState,
     ...bootstrapState,
     projects,
+    jsonlIndex,
   });
 
   // 终端尺寸：监听 stdout 'resize'，cols < 100 视为窄列，进入 compact 模式
