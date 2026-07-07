@@ -175,7 +175,7 @@ git commit -m "chore(deps): add ink, typescript, tsup, vitest"
 **Interfaces:**
 - Produces: TypeScript 编译配置；`tsx` 与 `tsup` 使用同一基线
 
-- [ ] **Step 1：写入 `tsconfig.json`**
+- [x] **Step 1：写入 `tsconfig.json`**
 
 ```json
 {
@@ -203,7 +203,7 @@ git commit -m "chore(deps): add ink, typescript, tsup, vitest"
 }
 ```
 
-- [ ] **Step 2：写入 `tsconfig.build.json`**
+- [x] **Step 2：写入 `tsconfig.build.json`**
 
 ```json
 {
