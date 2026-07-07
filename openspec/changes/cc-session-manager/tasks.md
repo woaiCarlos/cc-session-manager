@@ -51,7 +51,7 @@
 - [x] 6.2 实现 `src/actions/newSession(project)`，调用终端派发器在该项目目录下执行 `claude`
 - [x] 6.3 实现 `src/actions/renameSession(sessionId, newName)`，更新 state 并持久化
 - [x] 6.4 实现 `src/actions/renameProject(groupKey, newName)`，更新 state 并持久化
-- [ ] 6.5 实现 `src/actions/addManualProject(path)`，打开文件夹选择器、校验路径、加入 state
+- [x] 6.5 实现 `src/actions/addManualProject(path)`，打开文件夹选择器、校验路径、加入 state
 - [ ] 6.6 实现 `src/actions/deleteManualProject(groupKey)`，带确认地从 state 移除
 - [ ] 6.7 实现 `src/actions/copySessionId(sessionId)`，使用 `pbcopy` 写入剪贴板并显示瞬态确认
 
