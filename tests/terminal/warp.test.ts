@@ -10,6 +10,7 @@ vi.mock('node:child_process', () => ({
 
 import { execFile } from 'node:child_process';
 import { warp } from '../../src/terminal/warp.js';
+import { TerminalNotInstalledError } from '../../src/terminal/index.js';
 
 const mockedExecFile = vi.mocked(execFile);
 
@@ -231,5 +232,80 @@ describe('warp', () => {
     await expect(warp({ cwd: '/x', command: 'ls' })).rejects.toThrow(
       /clipboard|Paste manually|Warp/i
     );
+  });
+
+  // ---------------------------------------------------------------
+  // Task 5.6: TerminalNotInstalledError contract for the Warp backend.
+  // When Warp is genuinely not installed, osascript's `tell application "Warp"`
+  // fails with a "Can't get application" error — we must rewrap that into
+  // TerminalNotInstalledError so the UI can prompt the user to switch
+  // terminals in Settings instead of showing a raw osascript diagnostic.
+  //
+  // Note: a generic keystroke-injection failure (e.g. accessibility
+  // permission refused) must continue to take the pbcopy fallback path —
+  // those tests are above; only Warp-missing takes the new error path.
+  // ---------------------------------------------------------------
+
+  it('throws TerminalNotInstalledError("Warp") when osascript reports Warp application is missing (skips pbcopy fallback)', async () => {
+    // Typical osascript failure when Warp is not installed:
+    //   execution error: Can't get application "Warp". (-1728)
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(
+            new Error('execution error: Can\'t get application "Warp". (-1728)'),
+            { code: 1 }
+          ),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = await warp({ cwd: '/x', command: 'ls' }).catch((e) => e);
+    expect(err).toBeInstanceOf(TerminalNotInstalledError);
+    expect((err as TerminalNotInstalledError).binary).toBe('Warp');
+    // Sanity: when Warp is missing there is no point in stuffing the
+    // clipboard — the user wouldn't be able to paste into Warp anyway.
+    expect(mockedExecFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws TerminalNotInstalledError("osascript") when execFile reports ENOENT (skips pbcopy fallback)', async () => {
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(new Error('spawn osascript ENOENT'), { code: 'ENOENT' }),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = await warp({ cwd: '/x', command: 'ls' }).catch((e) => e);
+    expect(err).toBeInstanceOf(TerminalNotInstalledError);
+    expect((err as TerminalNotInstalledError).binary).toBe('osascript');
+    // Sanity: no pbcopy fallback for a missing binary — pasting wouldn't help.
+    expect(mockedExecFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('TerminalNotInstalledError message from warp contains an actionable "Settings" hint', async () => {
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(
+            new Error('execution error: Can\'t get application "Warp". (-1728)'),
+            { code: 1 }
+          ),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = (await warp({ cwd: '/x', command: 'ls' }).catch(
+      (e) => e
+    )) as TerminalNotInstalledError;
+    expect(err.message).toMatch(/Warp/);
+    expect(err.message).toMatch(/Settings/i);
   });
 });

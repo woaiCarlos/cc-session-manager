@@ -18,6 +18,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { escapeForAppleScript, escapeForAppleScriptDoubleQuotes } from './escape.js';
+import { isAppleScriptApplicationMissing, isOsascriptBinaryMissing } from './errors.js';
+import { TerminalNotInstalledError } from './index.js';
 
 const exec = promisify(execFile);
 
@@ -36,6 +38,13 @@ export interface OpenRequest {
  *
  * Rejects if `osascript` exits non-zero (e.g. macOS Automation permission
  * denied — iTerm2 is not in the allowed apps list).
+ *
+ * Rejects with `TerminalNotInstalledError('iTerm2')` if osascript reports
+ * the iTerm2 application is not installed (typical error -1728
+ * "Can't get application \"iTerm2\""), or with
+ * `TerminalNotInstalledError('osascript')` if `osascript` itself cannot be
+ * spawned. Either way the UI catches the typed error and shows a
+ * "switch terminal in Settings" hint.
  */
 export async function iterm2(req: OpenRequest): Promise<void> {
   const eCwd = escapeForAppleScript(req.cwd);
@@ -46,5 +55,15 @@ tell application "iTerm2"
   create window with default profile command "cd '${eCwd}' && ${eCmd}"
 end tell
 `;
-  await exec('osascript', ['-e', script]);
+  try {
+    await exec('osascript', ['-e', script]);
+  } catch (err) {
+    if (isAppleScriptApplicationMissing(err, 'iTerm2')) {
+      throw new TerminalNotInstalledError('iTerm2');
+    }
+    if (isOsascriptBinaryMissing(err)) {
+      throw new TerminalNotInstalledError('osascript');
+    }
+    throw err;
+  }
 }

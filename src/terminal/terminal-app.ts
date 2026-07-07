@@ -17,6 +17,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { buildTerminalAppScript } from './escape.js';
+import { isOsascriptBinaryMissing } from './errors.js';
+import { TerminalNotInstalledError } from './index.js';
 
 const exec = promisify(execFile);
 
@@ -34,8 +36,21 @@ export interface OpenRequest {
  *
  * Rejects if `osascript` exits non-zero (e.g. macOS Automation permission
  * denied — Terminal is not in the allowed apps list).
+ *
+ * Rejects with `TerminalNotInstalledError('osascript')` if `osascript`
+ * itself cannot be spawned (ENOENT / "command not found"), so the UI can
+ * surface a "switch terminal in Settings" hint instead of a raw spawn
+ * failure. Terminal.app itself is bundled with macOS and cannot be
+ * uninstalled, so we don't need a separate "Terminal.app missing" branch.
  */
 export async function terminalApp(req: OpenRequest): Promise<void> {
   const script = buildTerminalAppScript(req.cwd, req.command);
-  await exec('osascript', ['-e', script]);
+  try {
+    await exec('osascript', ['-e', script]);
+  } catch (err) {
+    if (isOsascriptBinaryMissing(err)) {
+      throw new TerminalNotInstalledError('osascript');
+    }
+    throw err;
+  }
 }

@@ -33,6 +33,8 @@
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import { promisify } from 'node:util';
 import { escapeForAppleScript } from './escape.js';
+import { isAppleScriptApplicationMissing, isOsascriptBinaryMissing } from './errors.js';
+import { TerminalNotInstalledError } from './index.js';
 
 const exec = promisify(execFile);
 
@@ -57,14 +59,19 @@ export interface OpenRequest {
  * success path). If `osascript` fails for ANY reason (Automation permission,
  * Warp not installed, focus race, etc.), this function:
  *
- *   1. Copies the same command string to the system clipboard via `pbcopy`
- *      using `execFile` (no shell). The clipboard is left populated so the
- *      user can paste into Warp manually.
- *   2. Rejects with an Error whose message tells the caller what happened
- *      and that the command is in the clipboard ready to paste.
+ *   1. If osascript reports Warp is not installed (or `osascript` itself is
+ *      missing), rejects with `TerminalNotInstalledError` so the UI can
+ *      prompt the user to switch terminals in Settings. In this case we
+ *      SKIP the pbcopy fallback — there is no point in copying a command
+ *      that the user cannot paste into a missing terminal.
+ *   2. Otherwise copies the same command string to the system clipboard via
+ *      `pbcopy` using `execFile` (no shell). The clipboard is left
+ *      populated so the user can paste into Warp manually. Rejects with an
+ *      Error whose message tells the caller what happened and that the
+ *      command is in the clipboard ready to paste.
  *
  * The function never silently swallows errors: every failure mode is
- * surfaced to the caller (either as a rejection, or as a populated
+ * surfaced to the caller (either as a typed rejection, or as a populated
  * clipboard + rejection).
  */
 export async function warp(req: OpenRequest): Promise<void> {
@@ -86,7 +93,17 @@ end tell
 
   try {
     await exec('osascript', ['-e', script]);
-  } catch {
+  } catch (err) {
+    // If Warp itself is not installed, the pbcopy fallback would be
+    // pointless — the user cannot paste into a terminal that doesn't exist.
+    // Surface a typed error so the UI can render a "switch terminal in
+    // Settings" hint instead of a clipboard dance.
+    if (isAppleScriptApplicationMissing(err, 'Warp')) {
+      throw new TerminalNotInstalledError('Warp');
+    }
+    if (isOsascriptBinaryMissing(err)) {
+      throw new TerminalNotInstalledError('osascript');
+    }
     // Best-effort contract: leave the clipboard populated so the user can
     // paste into Warp manually, then reject so the UI can show a status.
     try {

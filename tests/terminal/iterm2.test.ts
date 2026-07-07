@@ -9,6 +9,7 @@ vi.mock('node:child_process', () => ({
 
 import { execFile } from 'node:child_process';
 import { iterm2 } from '../../src/terminal/iterm2.js';
+import { TerminalNotInstalledError } from '../../src/terminal/index.js';
 
 const mockedExecFile = vi.mocked(execFile);
 
@@ -134,5 +135,87 @@ describe('iterm2', () => {
     );
 
     await expect(iterm2({ cwd: '/x', command: 'ls' })).rejects.toThrow(/Apple events|Not authorized/);
+  });
+
+  // ---------------------------------------------------------------
+  // Task 5.6: TerminalNotInstalledError contract for the iTerm2 backend.
+  // We want the UI to be able to do a single `instanceof` check and
+  // surface a "switch terminal in Settings" hint when the user's chosen
+  // terminal is genuinely not installed.
+  // ---------------------------------------------------------------
+
+  it('throws TerminalNotInstalledError("iTerm2") when osascript reports the iTerm2 application is missing', async () => {
+    // Typical osascript failure when iTerm2 is not installed:
+    //   execution error: Can't get application "iTerm2". (-1728)
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(
+            new Error('execution error: Can\'t get application "iTerm2". (-1728)'),
+            { code: 1 }
+          ),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = await iterm2({ cwd: '/x', command: 'ls' }).catch((e) => e);
+    expect(err).toBeInstanceOf(TerminalNotInstalledError);
+    expect((err as TerminalNotInstalledError).binary).toBe('iTerm2');
+  });
+
+  it('throws TerminalNotInstalledError("osascript") when execFile reports ENOENT', async () => {
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(new Error('spawn osascript ENOENT'), { code: 'ENOENT' }),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = await iterm2({ cwd: '/x', command: 'ls' }).catch((e) => e);
+    expect(err).toBeInstanceOf(TerminalNotInstalledError);
+    expect((err as TerminalNotInstalledError).binary).toBe('osascript');
+  });
+
+  it('TerminalNotInstalledError message from iterm2 contains an actionable "Settings" hint', async () => {
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(
+            new Error('execution error: Can\'t get application "iTerm2". (-1728)'),
+            { code: 1 }
+          ),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = (await iterm2({ cwd: '/x', command: 'ls' }).catch(
+      (e) => e
+    )) as TerminalNotInstalledError;
+    expect(err.message).toMatch(/iTerm2/);
+    expect(err.message).toMatch(/Settings/i);
+  });
+
+  it('still propagates unrelated osascript errors (e.g. Automation permission denied) verbatim', async () => {
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(new Error('Not authorized to send Apple events'), { code: 1 }),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = await iterm2({ cwd: '/x', command: 'ls' }).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(TerminalNotInstalledError);
+    expect((err as Error).message).toMatch(/Apple events|Not authorized/);
   });
 });

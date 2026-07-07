@@ -9,6 +9,7 @@ vi.mock('node:child_process', () => ({
 
 import { execFile } from 'node:child_process';
 import { terminalApp } from '../../src/terminal/terminal-app.js';
+import { TerminalNotInstalledError } from '../../src/terminal/index.js';
 
 const mockedExecFile = vi.mocked(execFile);
 
@@ -116,5 +117,82 @@ describe('terminalApp', () => {
     );
 
     await expect(terminalApp({ cwd: '/x', command: 'ls' })).rejects.toThrow(/Apple events|Not authorized/);
+  });
+
+  // ---------------------------------------------------------------
+  // Task 5.6: TerminalNotInstalledError contract.
+  // When osascript itself is missing (ENOENT) we must surface a typed
+  // error so the UI can render a "switch terminal in Settings" hint
+  // instead of dumping the raw spawn failure.
+  // ---------------------------------------------------------------
+
+  it('throws TerminalNotInstalledError("osascript") when execFile reports ENOENT', async () => {
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(new Error('spawn osascript ENOENT'), { code: 'ENOENT' }),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = await terminalApp({ cwd: '/x', command: 'ls' }).catch((e) => e);
+    expect(err).toBeInstanceOf(TerminalNotInstalledError);
+    expect((err as TerminalNotInstalledError).binary).toBe('osascript');
+  });
+
+  it('throws TerminalNotInstalledError("osascript") when error message says "command not found"', async () => {
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(new Error('/bin/sh: osascript: command not found'), { code: 127 }),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = await terminalApp({ cwd: '/x', command: 'ls' }).catch((e) => e);
+    expect(err).toBeInstanceOf(TerminalNotInstalledError);
+    expect((err as TerminalNotInstalledError).binary).toBe('osascript');
+  });
+
+  it('TerminalNotInstalledError message from terminalApp contains an actionable "Settings" hint', async () => {
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(new Error('spawn osascript ENOENT'), { code: 'ENOENT' }),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = (await terminalApp({ cwd: '/x', command: 'ls' }).catch(
+      (e) => e
+    )) as TerminalNotInstalledError;
+    expect(err.message).toMatch(/osascript/);
+    expect(err.message).toMatch(/Settings/i);
+  });
+
+  it('still propagates unrelated osascript errors (e.g. Automation permission denied) verbatim', async () => {
+    // Sanity: only "binary missing" failures should be remapped; everything
+    // else (permissions, runtime AppleScript errors) must pass through so the
+    // UI can show the original diagnostic.
+    mockedExecFile.mockImplementation(
+      makeExecFileMock((cb) =>
+        cb(
+          Object.assign(new Error('Not authorized to send Apple events'), { code: 1 }),
+          '',
+          ''
+        )
+      )
+    );
+
+    const err = await terminalApp({ cwd: '/x', command: 'ls' }).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(TerminalNotInstalledError);
+    expect((err as Error).message).toMatch(/Apple events|Not authorized/);
   });
 });
