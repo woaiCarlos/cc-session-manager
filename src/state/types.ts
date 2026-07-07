@@ -1,4 +1,4 @@
-export type TerminalChoice = 'terminal' | 'iterm2' | 'warp';
+export type TerminalChoice = 'current' | 'terminal' | 'iterm2' | 'warp';
 export type Terminal = TerminalChoice;
 
 export interface ManualProject {
@@ -55,7 +55,7 @@ export interface AppState {
 
 export const DEFAULT_STATE: AppState = {
   sessionRoot: null,
-  terminal: 'terminal',
+  terminal: 'current',
   sessionAliases: {},
   projectAliases: {},
   manualProjects: [],

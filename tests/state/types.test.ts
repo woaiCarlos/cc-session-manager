@@ -3,7 +3,7 @@ import { DEFAULT_STATE, type AppState, type ManualProject, type Terminal, type T
 
 describe('state types', () => {
   it('exports the supported terminal union', () => {
-    expectTypeOf<'terminal' | 'iterm2' | 'warp'>().toEqualTypeOf<Terminal>();
+    expectTypeOf<'current' | 'terminal' | 'iterm2' | 'warp'>().toEqualTypeOf<Terminal>();
     expectTypeOf<Terminal>().toEqualTypeOf<TerminalChoice>();
   });
 
@@ -22,7 +22,7 @@ describe('state types', () => {
 
     expect(DEFAULT_STATE).toEqual({
       sessionRoot: null,
-      terminal: 'terminal',
+      terminal: 'current',
       sessionAliases: {},
       projectAliases: {},
       manualProjects: [],

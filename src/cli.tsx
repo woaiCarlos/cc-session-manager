@@ -9,6 +9,7 @@ import { detectRoot } from './discovery/detectRoot.js';
 import { runDiscovery } from './discovery/index.js';
 import { groupSessions } from './grouping/group.js';
 import { tryAcquire, release } from './state/lock.js';
+import { setCurrentTerminalDeps } from './terminal/current.js';
 import type { AppState, Project, SessionMeta } from './state/types.js';
 
 /**
@@ -124,6 +125,18 @@ export async function bootstrap(
 
   renderInstance = _render(createAppElement(projects));
   const { unmount } = renderInstance;
+
+  // 'current' terminal backend 需要在用户按 Enter 触发 resume 时暂停 TUI
+  // 并在原 terminal 跑 `claude --resume <id>`，退出后再恢复 Ink。把 render
+  // 句柄注册给 current backend，cli 退出时清空。
+  setCurrentTerminalDeps({
+    unmount: () => unmount(),
+    createAppElement: () => createAppElement(projects),
+    render: (el) => {
+      const r = _render(el);
+      return { rerender: r.rerender, unmount: r.unmount };
+    },
+  });
 
   // 启动扫描（不 await）—— UI 抢先渲染
   void (async (): Promise<void> => {

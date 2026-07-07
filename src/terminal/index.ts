@@ -4,6 +4,7 @@
  * Reads `state.terminal` (a `TerminalChoice` from `src/state/types.ts`) and
  * routes the open request to the corresponding backend:
  *
+ *   - `current`  -> `current`      (暂停 TUI，在当前 terminal 跑 `claude`，退出后恢复)
  *   - `terminal` -> `terminalApp` (Terminal.app via osascript)
  *   - `iterm2`   -> `iterm2`       (iTerm2 via osascript)
  *   - `warp`     -> `warp`         (Warp via System Events keystroke,
@@ -25,6 +26,7 @@ import type { TerminalChoice } from '../state/types.js';
 import { terminalApp, type OpenRequest } from './terminal-app.js';
 import { iterm2 } from './iterm2.js';
 import { warp } from './warp.js';
+import { current } from './current.js';
 
 /**
  * Forward an open request to the backend selected by `state.terminal`.
@@ -37,6 +39,8 @@ export async function dispatchOpen(
   req: OpenRequest
 ): Promise<void> {
   switch (terminal) {
+    case 'current':
+      return current(req);
     case 'terminal':
       return terminalApp(req);
     case 'iterm2':
