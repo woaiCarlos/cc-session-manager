@@ -59,3 +59,17 @@ export async function saveState(state: AppState): Promise<void> {
   await fs.rename(tmp, statePath);
   cache = state;
 }
+
+/**
+ * 返回当前生效的 session root 目录：
+ * - 优先返回 `state.sessionRoot`（用户在设置中显式配置的覆盖值）
+ * - 否则回退到 `detect()`（由 task 3.1 实现的探测函数）
+ *
+ * `detect` 作为参数注入，避免本模块依赖 task 3.1；同时允许测试直接 mock。
+ */
+export async function getSessionRoot(
+  detect: () => Promise<string | null>
+): Promise<string | null> {
+  const state = await loadState();
+  return state.sessionRoot ?? (await detect());
+}

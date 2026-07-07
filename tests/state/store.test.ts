@@ -7,6 +7,7 @@ import type {
   loadState as LoadStateFn,
   saveState as SaveStateFn,
   resetForTest as ResetForTestFn,
+  getSessionRoot as GetSessionRootFn,
   STATE_PATH as StatePathConst,
 } from '../../src/state/store.js';
 
@@ -14,6 +15,7 @@ type StoreModule = {
   loadState: typeof LoadStateFn;
   saveState: typeof SaveStateFn;
   resetForTest: typeof ResetForTestFn;
+  getSessionRoot: typeof GetSessionRootFn;
   STATE_PATH: typeof StatePathConst;
 };
 
@@ -89,5 +91,23 @@ describe('store', () => {
     await store.saveState({ ...DEFAULT_STATE, terminal: 'warp' });
     const reloaded = await store.loadState();
     expect(reloaded.terminal).toBe('warp');
+  });
+
+  it('getSessionRoot returns override from state when set (Task 2.5)', async () => {
+    await store.saveState({ ...DEFAULT_STATE, sessionRoot: '/custom/path' });
+    const root = await store.getSessionRoot(async () => '/auto/path');
+    expect(root).toBe('/custom/path');
+  });
+
+  it('getSessionRoot falls back to detector when no override (Task 2.5)', async () => {
+    await store.saveState({ ...DEFAULT_STATE });
+    const root = await store.getSessionRoot(async () => '/auto/path');
+    expect(root).toBe('/auto/path');
+  });
+
+  it('getSessionRoot falls back when detector returns null (Task 2.5)', async () => {
+    await store.saveState({ ...DEFAULT_STATE });
+    const root = await store.getSessionRoot(async () => null);
+    expect(root).toBeNull();
   });
 });
