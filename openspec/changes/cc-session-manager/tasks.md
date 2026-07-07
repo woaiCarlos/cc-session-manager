@@ -76,7 +76,7 @@
 
 ## 8. 文件夹选择器集成
 
-- [ ] 8.1 实现 `src/util/folder-picker.ts`，使用 `osascript` 调用 macOS 原生文件夹选择器（`choose folder`）
+- [x] 8.1 实现 `src/util/folder-picker.ts`，使用 `osascript` 调用 macOS 原生文件夹选择器（`choose folder`）
 - [ ] 8.2 返回所选 POSIX 路径，若用户取消则返回 `null`
 - [ ] 8.3 校验所选路径存在且为目录，再作为手动项目添加
 
