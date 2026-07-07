@@ -25,11 +25,18 @@ interface CurrentDeps {
   /**
    * Bug A：触发 session 元数据重新扫描的钩子。cli.tsx 在 bootstrap 内
    * 定义并通过 setCurrentTerminalDeps 注入；调用时机在 Ink remount 之后
-   * 以避免派发到旧 App 实例。callback 接受被 resume session 的
-   * jsonlPath 与 sessionId，由 cli 调 parseJsonlFile 然后通过 onMeta
-   * 推回 reducer。rescan 失败时 cli 内部 swallow 并 console.error。
+   * 以避免派发到旧 App 实例。callback 接受被 resume session 的 sessionId，
+   * 由 cli 在闭包内的 jsonlIndex 反查 jsonlPath 后调 parseJsonlFile，
+   * 把新 meta 通过 onMeta 推回 reducer。rescan 失败时 cli 内部 swallow
+   * 并 console.error。
+   *
+   * 三次回归教训：早期版本传 `(jsonlPath, sessionId)`，但 jsonlPath 来源
+   * 是 Session.jsonlPath，而 Session.jsonlPath 在 state.jsonlIndex 没被
+   * App 同步更新的情况下永远是 undefined —— rescan 因此被静默跳过。
+   * 现在改成只传 sessionId，cli 在闭包内反查（jsonlIndex 在 runDiscovery
+   * 完成后已经稳定填充）。
    */
-  rescanSession?: (jsonlPath: string, sessionId: string) => void;
+  rescanSession?: (sessionId: string) => void;
 }
 
 let deps: CurrentDeps | null = null;
@@ -101,9 +108,10 @@ export function current(req: OpenRequest): Promise<void> {
       //    新 App 实例。rescan 在 render 之后调用——这样 _onSession 已经
       //    被新 App 的 useEffect 接管，meta 会被新 reducer 收到并刷新
       //    displayName / sizeBytes / lastTimestamp。
-      if (req.jsonlPath && req.sessionId && deps!.rescanSession) {
+      //    只传 sessionId；cli 在自己的 jsonlIndex 闭包里反查 jsonlPath。
+      if (req.sessionId && deps!.rescanSession) {
         try {
-          deps!.rescanSession(req.jsonlPath, req.sessionId);
+          deps!.rescanSession(req.sessionId);
         } catch {
           /* rescan 失败是 best-effort */
         }

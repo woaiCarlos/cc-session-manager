@@ -469,20 +469,6 @@ describe('App reducer — SESSION_DISCOVERED', () => {
     expect(row.sizeBytes).toBe(8192);
     expect(row.lastTimestamp).toBe('2026-07-07T00:30:00Z');
   });
-
-  it('Bug A: records jsonlPath from jsonlIndex on the Session', () => {
-    const meta = makeMeta({ sessionId: 'sess-with-jsonl', cwd: '/p1' });
-    const seed = {
-      ...baseState(),
-      jsonlIndex: {
-        'sess-with-jsonl': '/data/cc/sess-with-jsonl.jsonl',
-      },
-    };
-    const after = reducer(seed, { type: 'SESSION_DISCOVERED', meta });
-    expect(after.projects[0]!.sessions[0]!.jsonlPath).toBe(
-      '/data/cc/sess-with-jsonl.jsonl',
-    );
-  });
 });
 
 describe('App reducer — NOTICE', () => {

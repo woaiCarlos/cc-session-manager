@@ -34,11 +34,17 @@ export interface OpenRequest {
   /**
    * Optional session context, populated by `resumeSession` so the 'current'
    * backend can re-scan this session's JSONL after the child exits (Bug A:
-   * refresh session metadata on resume-exit). Other backends ignore these
-   * fields; making them optional keeps the dispatcher interface stable.
+   * refresh session metadata on resume-exit). Other backends ignore the
+   * field; making it optional keeps the dispatcher interface stable.
+   *
+   * Note: jsonlPath is intentionally NOT included here — cli.tsx holds its
+   * own sessionId → jsonlPath index in a closure, populated during
+   * runDiscovery, and looks it up directly inside rescanSession. The
+   * earlier approach of carrying jsonlPath through Session / OpenRequest
+   * was broken in practice (state.jsonlIndex never updated after mount),
+   * making Session.jsonlPath permanently undefined.
    */
   sessionId?: string;
-  jsonlPath?: string;
 }
 
 /**

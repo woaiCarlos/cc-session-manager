@@ -46,8 +46,9 @@ describe('resumeSession', () => {
     expect(mockedDispatchOpen).toHaveBeenCalledWith('iterm2', {
       cwd: '/Users/bob/work/proj',
       command: 'claude --resume sess-xyz-42',
+      // Bug A 修复 3：OpenRequest 不再携带 jsonlPath —— cli 在自己闭包
+      // 内的 jsonlIndex 反查。这样不依赖 Session.jsonlPath（永远 undefined）。
       sessionId: 'sess-xyz-42',
-      jsonlPath: undefined,
     });
   });
 
@@ -85,7 +86,6 @@ describe('resumeSession', () => {
       cwd: session.cwd,
       command: 'claude --resume weird id with spaces & symbols',
       sessionId: 'weird id with spaces & symbols',
-      jsonlPath: undefined,
     });
   });
 });

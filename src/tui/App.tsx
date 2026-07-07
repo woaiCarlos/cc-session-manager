@@ -74,12 +74,6 @@ export interface UiState extends AppState {
   bootstrapError: string | null;
   // 派生：搜索过滤后的 session（由后续 task 填充计算逻辑；当前占位保留）
   filteredSessions: import('../state/types.js').Session[];
-  /**
-   * sessionId → jsonlPath 映射，由 cli.tsx 在 runDiscovery 完成后注入。
-   * SESSION_DISCOVERED reducer 用它把 jsonlPath 写入 Session，给 Bug A
-   * 的 'current' backend rescan 钩子定位文件。
-   */
-  jsonlIndex?: Record<string, string>;
 }
 
 export const initialState: UiState = {
@@ -96,7 +90,6 @@ export const initialState: UiState = {
   lastAction: null,
   bootstrapError: null,
   filteredSessions: [],
-  jsonlIndex: undefined,
 };
 
 // ---------------------------------------------------------------------------
@@ -130,10 +123,9 @@ export function reducer(state: UiState, action: Action): UiState {
       const meta = action.meta;
       const projects = state.projects.slice();
       const displayName = deriveDisplayName(meta);
-      // jsonlIndex is provided via App props (cli.tsx builds it during
-      // runDiscovery). For Bug A the 'current' backend rescan needs to
-      // know where to re-parse; we record it on the Session.
-      const jsonlPath = state.jsonlIndex?.[meta.sessionId];
+      // Bug A 修复 3：jsonlPath 不再由 App 维护 —— cli.tsx 在自己闭包内
+      // 持有 sessionId → jsonlPath 索引，rescan 路径走那边。这里只关心
+      // Session 的展示字段（displayName / sizeBytes / lastTimestamp）。
       const newSession: Session = {
         id: meta.sessionId,
         displayName,
@@ -141,7 +133,6 @@ export function reducer(state: UiState, action: Action): UiState {
         lastActiveRelative: meta.lastTimestamp,
         lastTimestamp: meta.lastTimestamp,
         sizeBytes: meta.sizeBytes,
-        jsonlPath,
       };
       const idx = projects.findIndex((p) => p.key === meta.cwd);
       if (idx >= 0) {
@@ -274,11 +265,14 @@ export interface AppProps {
    */
   onProjectsChange?: (projects: Project[]) => void;
   /**
-   * Bug 4d：sessionId → jsonlPath 映射，由 cli.tsx 在 discovery 阶段
-   * 构建并透传，让 ccsm 的 R 键能 append custom-title 到正确的 JSONL。
-   * 可选；不提供时 R 键会提示「未找到对应 session 文件」并 dispatch NOTICE。
+   * Bug A 修复 3：sessionId → jsonlPath 反查回调。由 cli.tsx 在 bootstrap
+   * 内基于 runDiscovery 填充的 jsonlIndex 闭包实现。R 键 rename modal
+   * 调用它定位要写入 custom-title 的 JSONL 文件；'current' backend
+   * rescan 也通过同一个闭包拿到 jsonlPath。提供这个 callback 而不是
+   * 直接传 jsonlIndex prop，是因为后者在 App mount 时为空且没有同步
+   * 机制，会导致所有查找返回 undefined。
    */
-  jsonlIndex?: Record<string, string>;
+  lookupJsonlPath?: (sessionId: string) => string | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -291,13 +285,12 @@ export const App: React.FC<AppProps> = ({
   onSession,
   onScanComplete,
   onProjectsChange,
-  jsonlIndex,
+  lookupJsonlPath,
 }) => {
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
     ...bootstrapState,
     projects,
-    jsonlIndex,
   });
 
   // 终端尺寸：监听 stdout 'resize'，cols < 100 视为窄列，进入 compact 模式
@@ -469,7 +462,9 @@ export const App: React.FC<AppProps> = ({
             }
             dispatch({ type: 'CLOSE_MODAL' });
             // 把 custom-title 写回 JSONL —— 单一来源
-            const jsonlPath = jsonlIndex?.[targetId];
+            // Bug A 修复 3：通过 cli 闭包回调反查 jsonlPath，而非依赖
+            // state.jsonlIndex（后者在 App mount 后不会被同步更新，永远是空）。
+            const jsonlPath = lookupJsonlPath?.(targetId);
             if (!jsonlPath) {
               dispatch({
                 type: 'NOTICE',

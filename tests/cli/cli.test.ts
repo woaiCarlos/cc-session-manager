@@ -411,20 +411,19 @@ describe('cli bootstrap', () => {
   });
 
   it('rescanSession closure invokes _onSession with the freshly parsed meta (Bug A)', async () => {
-    // Bug A 端到端：'current' backend 调 rescanSession → cli 用 parseJsonlFile
-    // 重读 JSONL → 通过 _onSession 派发到当前 App reducer → UI 自动更新。
-    // 这里我们 mock parseJsonlFile 让它返回新 meta，再捕获 _onSession 收到的
-    // 内容。
+    // Bug A 端到端：'current' backend 调 rescanSession(sessionId) → cli 在
+    // jsonlIndex 闭包反查 jsonlPath → parseJsonlFile → _onSession 派发 →
+    // App reducer → UI 自动更新。这里 mock parseJsonlFile 让它返回新 meta，
+    // 并通过 mock runDiscovery 让 jsonlIndex 反查到测试路径。
     const receivedMetas: SessionMeta[] = [];
     const renderInstance = { unmount: vi.fn(), rerender: vi.fn() };
 
-    let registeredRescan: ((jsonlPath: string, sessionId: string) => void) | null =
-      null;
+    let registeredRescan: ((sessionId: string) => void) | null = null;
 
     const terminal = await import('../../src/terminal/current.js');
     const setDepsSpy = vi.spyOn(terminal, 'setCurrentTerminalDeps').mockImplementation(
       (d) => {
-        const captured = d as { rescanSession?: (jsonlPath: string, sessionId: string) => void };
+        const captured = d as { rescanSession?: (sessionId: string) => void };
         registeredRescan = captured.rescanSession ?? null;
       },
     );
@@ -462,14 +461,18 @@ describe('cli bootstrap', () => {
           }
           return renderInstance;
         }),
-        runDiscovery: vi.fn(async () => {}),
+        // 让 runDiscovery 在 jsonlIndex 闭包里写入 sid-fresh 的映射，
+        // rescanSession(sessionId) 才能反查到 jsonlPath。
+        runDiscovery: vi.fn(async () => {
+          return { 'sid-fresh': '/data/sid-fresh.jsonl' };
+        }),
       });
 
       await bootstrap(deps);
       expect(registeredRescan).not.toBeNull();
 
-      // 模拟 'current' backend 在 child exit 后调用 rescan
-      registeredRescan!('/data/sid-fresh.jsonl', 'sid-fresh');
+      // 模拟 'current' backend 在 child exit 后调用 rescan —— 只传 sessionId
+      registeredRescan!('sid-fresh');
 
       // 等待 waitForFileStable + async parseJsonlFile microtask
       await new Promise((r) => setTimeout(r, WAIT_MS));
@@ -492,15 +495,14 @@ describe('cli bootstrap', () => {
     // 窗口里 resolve，meta 会派发给旧 wrapper（已 unmount）→ UI 不刷新。
     // 修复：rescan 拿到的 meta 先压入 pendingMetas，等 onSession setter
     // 触发时 drain。本测试模拟「rescan 完成早于 onSession setter」这一时序。
-    let registeredRescan: ((jsonlPath: string, sessionId: string) => void) | null =
-      null;
+    let registeredRescan: ((sessionId: string) => void) | null = null;
     let pendingOnSessionSetter: ((cb: (m: SessionMeta) => void) => void) | null =
       null;
 
     const terminal = await import('../../src/terminal/current.js');
     const setDepsSpy = vi.spyOn(terminal, 'setCurrentTerminalDeps').mockImplementation(
       (d) => {
-        const captured = d as { rescanSession?: (jsonlPath: string, sessionId: string) => void };
+        const captured = d as { rescanSession?: (sessionId: string) => void };
         registeredRescan = captured.rescanSession ?? null;
       },
     );
@@ -547,14 +549,17 @@ describe('cli bootstrap', () => {
           }
           return { unmount: vi.fn(), rerender: vi.fn() };
         }),
-        runDiscovery: vi.fn(async () => {}),
+        runDiscovery: vi.fn(async () => {
+          // 让 cli 闭包的 jsonlIndex 能反查到 sid-pending 的路径
+          return { 'sid-pending': '/data/sid-pending.jsonl' };
+        }),
       });
 
       await bootstrap(deps);
       expect(registeredRescan).not.toBeNull();
 
-      // 1) 'current' backend 在 child exit 后调用 rescan（早于任何 useEffect）
-      registeredRescan!('/data/sid-pending.jsonl', 'sid-pending');
+      // 1) 'current' backend 在 child exit 后调用 rescan —— 只传 sessionId
+      registeredRescan!('sid-pending');
 
       // 2) 等 waitForFileStable + parseJsonlFile microtask
       await new Promise((r) => setTimeout(r, WAIT_MS));
@@ -569,6 +574,99 @@ describe('cli bootstrap', () => {
       expect(receivedMetas[0]!.customTitle).toBe('新名字');
       expect(receivedMetas[0]!.sizeBytes).toBe(4096);
       expect(parseSpy).toHaveBeenCalledWith('/data/sid-pending.jsonl');
+    } finally {
+      setDepsSpy.mockRestore();
+      parseSpy.mockRestore();
+    }
+  });
+
+  it('Bug A 三次回归：rescan 不依赖 Session.jsonlPath —— 即使 Session 没有 jsonlPath 字段，cli 闭包内的 jsonlIndex 也能反查', async () => {
+    // 用户实测：用户报告从 Claude Code 退出后名字不刷新。前面两次回归修复
+    // （pendingMetas buffer、file-order + waitForFileStable）都没解决问题。
+    // 真正根因：rescanSession 的 jsonlPath 参数来源于 Session.jsonlPath，
+    // 而 Session.jsonlPath 在 state.jsonlIndex 永远为空的情况下**始终**是
+    // undefined —— App mount 时 jsonlIndex prop 是 {}，且 App 没有同步
+    // state.jsonlIndex 的 useEffect，导致 dispatchOpen 被调用时
+    // jsonlPath: undefined，current.ts 静默跳过 rescan。
+    //
+    // 修复：把 jsonlPath 来源切换到 cli 闭包内由 runDiscovery 填充的
+    // jsonlIndex（这个 index 是稳定填充的，因为 runDiscovery 是 sync 写
+    // `index[parsed.meta.sessionId] = parsed.jsonlPath`）。current.ts
+    // 改为只传 sessionId；cli 自己在闭包内 lookup。本测试断言：
+    //   1. cli 收到的 rescanSession 签名只接受 sessionId
+    //   2. 即使 mock parseJsonlFile 在 test 里被传入一个绝对路径，
+    //      rescanSession(sessionId) 仍然调用 parseJsonlFile(cli 闭包里的路径)
+    //   3. 不依赖 Session.jsonlPath
+    let registeredRescan: ((sessionId: string) => void) | null = null;
+    const renderInstance = { unmount: vi.fn(), rerender: vi.fn() };
+
+    const terminal = await import('../../src/terminal/current.js');
+    const setDepsSpy = vi.spyOn(terminal, 'setCurrentTerminalDeps').mockImplementation(
+      (d) => {
+        const captured = d as { rescanSession?: unknown };
+        registeredRescan = (captured.rescanSession as (
+          sessionId: string,
+        ) => void) ?? null;
+      },
+    );
+
+    const parseSpy = vi
+      .spyOn(await import('../../src/discovery/parse.js'), 'parseJsonlFile')
+      .mockResolvedValue({
+        meta: {
+          sessionId: 'sid-from-cli-closure',
+          cwd: '/p1',
+          firstUserMessage: null,
+          lastPrompt: null,
+          customTitle: '从 cli 闭包 lookup 到的 jsonlPath 解析出来的新名',
+          lastTimestamp: '2026-07-07T02:00:00.000Z',
+          sizeBytes: 2048,
+          lineCount: 30,
+        },
+        jsonlPath: '/data/cli-closure/sid-from-cli-closure.jsonl',
+      });
+
+    const WAIT_MS = 400;
+
+    try {
+      const receivedMetas: SessionMeta[] = [];
+      const deps = makeDeps({
+        render: vi.fn((element: unknown) => {
+          const props = (element as { props: Record<string, unknown> }).props;
+          if (typeof props.onSession === 'function') {
+            const cb = props.onSession as (cb: (m: SessionMeta) => void) => void;
+            cb((m) => receivedMetas.push(m));
+          }
+          return renderInstance;
+        }),
+        // 模拟 runDiscovery 把 sessionId → jsonlPath 写入 cli 闭包 index。
+        // 注意 jsonlPath 是 cli 内部知道的，不来自 Session.jsonlPath。
+        runDiscovery: vi.fn(async () => {
+          return {
+            'sid-from-cli-closure':
+              '/data/cli-closure/sid-from-cli-closure.jsonl',
+          };
+        }),
+      });
+
+      await bootstrap(deps);
+      expect(registeredRescan).not.toBeNull();
+
+      // 当前的关键断言：rescanSession 只接收 sessionId。如果当前签名是
+      // (jsonlPath, sessionId) 或其它，这个 toHaveBeenCalledWith('sid-...')
+      // 不会匹配（多余参数会被 toHaveBeenCalledWith 视为不匹配）。
+      registeredRescan!('sid-from-cli-closure');
+
+      await new Promise((r) => setTimeout(r, WAIT_MS));
+
+      // parseSpy 接收的是 cli 闭包里的 jsonlPath，不是从 session 传的
+      expect(parseSpy).toHaveBeenCalledWith(
+        '/data/cli-closure/sid-from-cli-closure.jsonl',
+      );
+      expect(receivedMetas).toHaveLength(1);
+      expect(receivedMetas[0]!.customTitle).toBe(
+        '从 cli 闭包 lookup 到的 jsonlPath 解析出来的新名',
+      );
     } finally {
       setDepsSpy.mockRestore();
       parseSpy.mockRestore();

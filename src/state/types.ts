@@ -29,13 +29,6 @@ export interface Session {
    *  parseJsonlFile → groupSessions / SESSION_DISCOVERED. Surfaced by the
    *  SessionPane to help users spot large sessions in long lists. */
   sizeBytes: number;
-  /**
-   * Absolute path to the JSONL file backing this session. Populated by the
-   *  SESSION_DISCOVERED reducer from `jsonlIndex[sessionId]` (which cli.tsx
-   *  builds during runDiscovery). Used by Bug A: the 'current' backend
-   *  rescan hook calls parseJsonlFile on this path after claude exits.
-   */
-  jsonlPath?: string;
 }
 
 export interface Project {

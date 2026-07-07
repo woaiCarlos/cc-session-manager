@@ -193,7 +193,11 @@ export async function bootstrap(
     React.createElement(App, {
       bootstrapState: appState,
       projects: nextProjects,
-      jsonlIndex,
+      // Bug A 修复 3：jsonlIndex 不再透传给 App —— cli 闭包内保留，由
+      // rescanSession 反查。早期版本通过 jsonlIndex prop 让 App 把
+      // Session.jsonlPath 写进 state.projects，但 App mount 后没有同步
+      // state.jsonlIndex 的 useEffect，导致 Session.jsonlPath 永远是
+      // undefined，rescan 因此被静默跳过。
       onSession: (cb: (meta: SessionMeta) => void) => {
         _onSession = cb;
         // 新 App mount 时把之前 buffered 的 meta 全部派发给它
@@ -205,6 +209,10 @@ export async function bootstrap(
       onProjectsChange: (next: Project[]) => {
         latestProjects = next;
       },
+      // R 键 rename modal 用这个 callback 反查 jsonlPath。返回 string | undefined；
+      // 由 runDiscovery 填充的 jsonlIndex 闭包保证不会 undefined（除非 session
+      // 来自手工添加的 project 还没有 JSONL 文件）。
+      lookupJsonlPath: (sessionId: string) => jsonlIndex[sessionId],
     });
 
   // 1) App 的 onSession callback 接收 SESSION_DISCOVERED 派发到 React reducer
@@ -238,8 +246,16 @@ export async function bootstrap(
       const r = _render(el, { exitOnCtrlC: false });
       return { rerender: r.rerender, unmount: r.unmount };
     },
-    rescanSession: (jsonlPath: string, sessionId: string) => {
+    rescanSession: (sessionId: string) => {
       void (async (): Promise<void> => {
+        // 在闭包内反查 jsonlPath —— runDiscovery 完成后 jsonlIndex 已经是
+        // 完整填充的，sessionId → jsonlPath 映射就绪。
+        const jsonlPath = jsonlIndex[sessionId];
+        if (!jsonlPath) {
+          // eslint-disable-next-line no-console
+          console.error('[rescan] no jsonlPath for sessionId:', sessionId);
+          return;
+        }
         try {
           // Bug A 二次回归：claude 的 /rename 在 child.on('exit') 触发时
           // 可能还没把 custom-title event 落盘（async 写入 + 缓冲）。如果

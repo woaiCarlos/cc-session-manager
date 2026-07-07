@@ -36,9 +36,10 @@ export async function resumeSession(
   await dispatchOpen(terminal, {
     cwd: session.cwd,
     command: `claude --resume ${session.id}`,
-    // Forward session context so the 'current' backend can rescan the
-    // JSONL after the claude child exits (Bug A: refresh on exit).
+    // Forward session id so the 'current' backend can rescan this session's
+    // JSONL after the claude child exits. cli.tsx holds the sessionId →
+    // jsonlPath index in its own closure (populated by runDiscovery), so
+    // we don't need to also pass jsonlPath.
     sessionId: session.id,
-    jsonlPath: session.jsonlPath,
   });
 }

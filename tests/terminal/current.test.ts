@@ -45,7 +45,9 @@ beforeEach(() => {
 });
 
 describe("current backend — Bug A rescanSession on child exit", () => {
-  it('calls rescanSession with (jsonlPath, sessionId) after the child exits', async () => {
+  it('calls rescanSession with sessionId after the child exits', async () => {
+    // Bug A 修复 3：rescanSession 只接收 sessionId。cli 在自己闭包内的
+    // jsonlIndex 反查 jsonlPath，避免依赖 Session.jsonlPath（永远 undefined）。
     const rescanSession = vi.fn();
     setCurrentTerminalDeps({
       unmount: () => {},
@@ -62,15 +64,14 @@ describe("current backend — Bug A rescanSession on child exit", () => {
       cwd: '/Users/alice/work',
       command: 'claude --resume sid-1',
       sessionId: 'sid-1',
-      jsonlPath: '/data/sid-1.jsonl',
     });
     await p;
 
     expect(rescanSession).toHaveBeenCalledTimes(1);
-    expect(rescanSession).toHaveBeenCalledWith('/data/sid-1.jsonl', 'sid-1');
+    expect(rescanSession).toHaveBeenCalledWith('sid-1');
   });
 
-  it('does NOT call rescanSession when jsonlPath / sessionId are missing', async () => {
+  it('does NOT call rescanSession when sessionId is missing', async () => {
     const rescanSession = vi.fn();
     setCurrentTerminalDeps({
       unmount: () => {},
@@ -111,7 +112,6 @@ describe("current backend — Bug A rescanSession on child exit", () => {
       cwd: '/Users/alice/work',
       command: 'claude --resume sid-1',
       sessionId: 'sid-1',
-      jsonlPath: '/data/sid-1.jsonl',
     });
     await expect(p).resolves.toBeUndefined();
   });
@@ -140,7 +140,6 @@ describe("current backend — Bug A rescanSession on child exit", () => {
         cwd: '/tmp',
         command: 'false',
         sessionId: 'sid-1',
-        jsonlPath: '/data/sid-1.jsonl',
       }),
     ).rejects.toThrow(/exited with code/);
 
@@ -165,7 +164,7 @@ describe("current backend — Bug A rescanSession on child exit", () => {
         order.push('render');
         return { rerender: () => {}, unmount: () => {} };
       },
-      rescanSession: (_jsonlPath: string, sessionId: string) => {
+      rescanSession: (sessionId: string) => {
         order.push(`rescanSession:${sessionId}`);
       },
     });
@@ -174,7 +173,6 @@ describe("current backend — Bug A rescanSession on child exit", () => {
       cwd: '/Users/alice/work',
       command: 'claude --resume sid-77',
       sessionId: 'sid-77',
-      jsonlPath: '/data/sid-77.jsonl',
     });
 
     // unmount → render(createAppElement) → rescanSession

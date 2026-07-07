@@ -64,7 +64,22 @@
 - [x] 3b.5 红绿验证：`git stash push -- src/discovery/parse.ts` → 跑二次回归 → fail（lastPrompt 是 'older prompt' 而不是 'newer prompt'）；恢复 → pass。
 - [x] 3b.6 修复 `src/cli.tsx` 的 `waitForFileStable`：在 parseJsonlFile 之前等文件大小稳定 200ms（默认），让 claude 的 async 写入完成落盘；最长 2s 超时。文件不存在（ENOENT）时立即返回 —— parseJsonlFile 自身处理 null。首次 stat ENOENT 走快路径，避免 2s 等待。
 - [x] 3b.7 全量 359 用例通过，typecheck + build 全绿。
-- [x] 3b.8 commit: `fix(discovery): use file-order for customTitle / lastPrompt; waitForFileStable before rescan (Bug A 2nd regression)`
+## 3c. Bug A 三次回归（彻底废弃 Session.jsonlPath）
+
+- [x] 3c.1 用户实测：size 修复正常；rescan 仍不刷新 session 名。
+- [x] 3c.2 根因定位：rescanSession 的 jsonlPath 参数来自 `Session.jsonlPath`。`Session.jsonlPath` 由 reducer 用 `state.jsonlIndex[id]` 填充，而 `state.jsonlIndex` 是 useReducer 初始状态（mount 时取自 jsonlIndex prop）。当 App mount 时，runDiscovery 还没完成，prop jsonlIndex = {}，所以 state.jsonlIndex = {}。之后 runDiscovery 完成并填充 cli.tsx 的闭包 jsonlIndex，但 App 没有任何 useEffect 把 prop 更新推到 state.jsonlIndex。结果：`Session.jsonlPath` 永远是 undefined → `dispatchOpen` 时 `jsonlPath: undefined` → `current.ts` 的 `if (req.jsonlPath && ...)` 静默跳过 rescan。
+- [x] 3c.3 修复方案（彻底废弃 jsonlPath 通过 Session 传递的路径）：
+  - `Session.jsonlPath?` 字段删除
+  - `OpenRequest.jsonlPath?` 字段删除（保留 sessionId）
+  - `rescanSession` 签名从 `(jsonlPath, sessionId) => void` 改为 `(sessionId) => void`
+  - `cli.tsx` 的 rescanSession 内部用闭包内的 `jsonlIndex[sessionId]` 反查 jsonlPath
+  - `current.ts` 只传 sessionId
+  - `resumeSession.ts` 不再传 jsonlPath
+  - R 键 rename modal 通过新增 prop `lookupJsonlPath(sessionId): string | undefined` 反查路径（避免之前 `jsonlIndex` prop 同样的 mount 时序问题）
+- [x] 3c.4 新增 `tests/cli/cli.test.ts:533-622` 「Bug A 三次回归」用例：mock runDiscovery 返回 `{sessionId: jsonlPath}` 闭包；调 `rescanSession('sid-...')`；断言 `parseJsonlFile` 用 cli 闭包的路径被调用。
+- [x] 3c.5 红绿验证：`git stash push -- src/cli.tsx src/terminal/current.ts` → 跑用例 → fail（parseSpy 用 undefined 调用）；恢复 → pass。
+- [x] 3c.6 全量 359 用例通过，typecheck + build 全绿。
+- [x] 3c.7 commit: `fix(tui): rescan uses cli-closure jsonlIndex not Session.jsonlPath (Bug A 3rd regression)`
 
 ## 4. 验证 + 报告
 
