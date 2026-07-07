@@ -181,8 +181,16 @@ describe('routeKey — confirm modal branch', () => {
 // ---------------------------------------------------------------------------
 
 describe('routeKey — main view modal opens', () => {
-  it('"r" opens rename modal (per brief, ctx omitted; reducer defaults to {})', () => {
-    const state = makeState();
+  it('"r" in sessions pane with a selected session opens rename modal pre-filled with the alias', () => {
+    // Bug 3 fix: rename-modal 只能由 sessions pane + 有选中 session 时打开，
+    // 并把 session alias 写到 ctx 让 RenameModal 预填。alias 缺失时 initial=''。
+    const sess = makeSession({ id: 'sess-7' });
+    const state = makeState({
+      focusedPane: 'sessions',
+      selectedSessionId: 'sess-7',
+      projects: [makeProjectWith([sess])],
+      sessionAliases: { 'sess-7': 'my-alias' },
+    });
     const dispatch = makeDispatch();
     const opts = makeOpts();
     routeKey(state, dispatch, 'r', key(), opts);
@@ -190,8 +198,56 @@ describe('routeKey — main view modal opens', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].type).toBe('OPEN_MODAL');
     expect(calls[0].modal).toBe('rename');
-    // brief 显式不传 ctx；reducer 端 OPEN_MODAL 会把缺失 ctx 视为 {}。
-    expect(calls[0].ctx).toBeUndefined();
+    expect(calls[0].ctx).toEqual({
+      renameKind: 'session',
+      renameCurrentName: 'my-alias',
+    });
+  });
+
+  it('"r" in sessions pane with selected session but no alias opens rename modal with empty initial', () => {
+    const sess = makeSession({ id: 'sess-9' });
+    const state = makeState({
+      focusedPane: 'sessions',
+      selectedSessionId: 'sess-9',
+      projects: [makeProjectWith([sess])],
+      sessionAliases: {},
+    });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, 'r', key(), opts);
+    const calls = (dispatch as any).mock.calls.map((c) => c[0]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].type).toBe('OPEN_MODAL');
+    expect(calls[0].modal).toBe('rename');
+    expect(calls[0].ctx).toEqual({
+      renameKind: 'session',
+      renameCurrentName: '',
+    });
+  });
+
+  it('"r" in projects pane is a no-op (does not open rename modal)', () => {
+    // Bug 3 fix: 项目侧按 R 不再 dispatch OPEN_MODAL — groupKey 重命名
+    // 副作用比 alias 重命名大，不再由 TUI 入口触发。
+    const state = makeState({
+      focusedPane: 'projects',
+      selectedProjectKey: '/Users/alice/work',
+    });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, 'r', key(), opts);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('"r" in sessions pane without a selected session is a no-op (no rename target)', () => {
+    // sessions pane 选中后才能定 alias；否则按 R 不打开模态。
+    const state = makeState({
+      focusedPane: 'sessions',
+      selectedSessionId: null,
+    });
+    const dispatch = makeDispatch();
+    const opts = makeOpts();
+    routeKey(state, dispatch, 'r', key(), opts);
+    expect(dispatch).not.toHaveBeenCalled();
   });
 
   it('"n" triggers onNewSession(project) for the selected project (design doc authority: n = new session)', () => {

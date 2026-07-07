@@ -153,7 +153,23 @@ export function routeKey(
   }
 
   if (input === 'r') {
-    dispatch({ type: 'OPEN_MODAL', modal: 'rename' });
+    // 重命名模态仅在 sessions pane + 有选中 session 时打开，并把当前
+    // alias 预填到 ctx 让 RenameModal 展示「之前的对话名称」可删可改。
+    // 项目侧（groupKey 重命名副作用偏大）保持 no-op。
+    if (
+      state.focusedPane === 'sessions' &&
+      typeof state.selectedSessionId === 'string'
+    ) {
+      dispatch({
+        type: 'OPEN_MODAL',
+        modal: 'rename',
+        ctx: {
+          renameKind: 'session',
+          renameCurrentName:
+            state.sessionAliases[state.selectedSessionId] ?? '',
+        },
+      });
+    }
   } else if (input === 'n') {
     // design doc §3.3 权威：`n` 在选中 project 上新建 session（执行 `claude`）。
     // 早前 7.14 把 `n` 误接到 settings 模态（与 HelpModal 文案冲突），此处
