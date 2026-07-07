@@ -72,7 +72,7 @@ base-ref: not-yet-init
 **Interfaces:**
 - Produces: 工程根目录可被 `npm install` 识别；暴露 `ccsm` 可执行入口
 
-- [ ] **Step 1：在工程根目录初始化 git 仓库**
+- [x] **Step 1：在工程根目录初始化 git 仓库**
 
 ```bash
 cd /Users/carlos/workspace/cc-session-manager  # 若目录尚未存在则创建
@@ -81,7 +81,7 @@ git config user.email "dev@example.com"
 git config user.name "Developer"
 ```
 
-- [ ] **Step 2：写入 `package.json`**
+- [x] **Step 2：写入 `package.json`**
 
 `package.json` 内容：
 
@@ -109,7 +109,7 @@ git config user.name "Developer"
 }
 ```
 
-- [ ] **Step 3：写入 `.gitignore`**
+- [x] **Step 3：写入 `.gitignore`**
 
 `.gitignore` 内容：
 
@@ -124,7 +124,7 @@ coverage/
 .vitest-cache/
 ```
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add package.json .gitignore
@@ -159,7 +159,7 @@ npm ls --depth=0
 
 预期输出：列出 `ink`、`@inkjs/ui`、`ink-text-input`、`chalk`、以及 `typescript`、`tsx`、`@types/node`、`tsup`、`vitest`、`@vitest/ui`，无 `UNMET DEPENDENCY` 警告。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add package.json package-lock.json
@@ -225,7 +225,7 @@ rm -rf src/_probe.ts
 
 预期：`tsc` 退出码 0。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add tsconfig.json tsconfig.build.json
@@ -286,7 +286,7 @@ node -e "const p=require('./package.json'); console.log(p.scripts.build)"
 
 预期输出：`tsup`。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add tsup.config.ts package.json
@@ -1846,7 +1846,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：PASS。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
@@ -1898,7 +1898,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：PASS。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
@@ -2043,7 +2043,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/terminal/terminal-app.ts
@@ -2273,7 +2273,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/terminal/
@@ -2313,7 +2313,7 @@ grep -RIn "exec(" src/terminal/
 
 预期：仅出现 `execFile(`；无 `exec("` 或 `exec(\``。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/terminal/
@@ -3269,7 +3269,7 @@ kill %1 2>/dev/null || true
 
 预期输出包含 `Projects (0)` 与 `Sessions (0)`。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/tui/App.tsx
@@ -3729,7 +3729,7 @@ kill %1 2>/dev/null || true
 
 预期输出：UI 出现 `Projects (0)` 或 `Projects (N)`。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/cli.tsx src/state/lock.ts

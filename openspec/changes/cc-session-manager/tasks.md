@@ -1,6 +1,6 @@
 ## 1. 项目脚手架
 
-- [ ] 1.1 初始化 `package.json`，name=`cc-session-manager`，version=`0.1.0`，type=`module`，bin `{ ccsm: "dist/cli.js" }`
+- [x] 1.1 初始化 `package.json`，name=`cc-session-manager`，version=`0.1.0`，type=`module`，bin `{ ccsm: "dist/cli.js" }`
 - [ ] 1.2 添加依赖：`ink`、`@inkjs/ui`、`ink-text-input`、`chalk`；开发依赖：`typescript`、`tsx`、`@types/node`、`tsup`
 - [ ] 1.3 创建 `tsconfig.json`，target=`ES2022`，module=`NodeNext`，开启 strict 模式
 - [ ] 1.4 创建 `tsup.config.ts`，将 `src/cli.tsx` 打包为 `dist/cli.js`（保留 shebang 兼容 CommonJS）
