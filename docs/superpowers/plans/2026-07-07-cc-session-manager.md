@@ -301,7 +301,7 @@ git commit -m "chore(build): configure tsup to bundle cli.tsx as ESM"
 **Interfaces:**
 - Produces: 运行 `tsx src/cli.tsx` 后 Ink 渲染；`npm run build` 产物第一行是 shebang
 
-- [ ] **Step 1：写入 `src/cli.tsx`**
+- [x] **Step 1：写入 `src/cli.tsx`**
 
 ```tsx
 #!/usr/bin/env node
@@ -319,7 +319,7 @@ render(React.createElement(App));
 
 注意：保留首行 `#!/usr/bin/env node` 以便 tsup banner 不会重复插入。
 
-- [ ] **Step 2：直接执行 tsx**
+- [x] **Step 2：直接执行 tsx**
 
 ```bash
 npx tsx src/cli.tsx </dev/null 2>&1 | head -5
@@ -327,7 +327,7 @@ npx tsx src/cli.tsx </dev/null 2>&1 | head -5
 
 预期输出（任一终端中可见）：类似 `ccsm bootstrapping…`。
 
-- [ ] **Step 3：build 并验证 shebang**
+- [x] **Step 3：build 并验证 shebang**
 
 ```bash
 npm run build
@@ -336,7 +336,7 @@ head -1 dist/cli.js
 
 预期输出：`#!/usr/bin/env node`。
 
-- [ ] **Step 4：执行 dist 输出（无副作用）**
+- [x] **Step 4：执行 dist 输出（无副作用）**
 
 ```bash
 chmod +x dist/cli.js
@@ -345,7 +345,7 @@ timeout 1 ./dist/cli.js </dev/null || true
 
 预期：进程 1 秒内退出（占位 App 没接 useApp() 退出钩子，这里仅验证可启动）。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/cli.tsx
@@ -690,7 +690,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：2 个用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/state/store.ts tests/state/store.test.ts
@@ -832,7 +832,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：7 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/state/store.ts tests/state/store.test.ts
@@ -909,7 +909,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：9 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/state/store.ts tests/state/store.test.ts
@@ -1026,7 +1026,7 @@ npx vitest run tests/discovery/detectRoot.test.ts
 
 预期：3 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/discovery/detectRoot.ts tests/discovery/detectRoot.test.ts
@@ -1119,7 +1119,7 @@ npx vitest run tests/discovery/scan.test.ts
 
 预期：2 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/discovery/scan.ts tests/discovery/scan.test.ts
@@ -1306,7 +1306,7 @@ npx vitest run tests/discovery/parse.test.ts
 
 预期：4 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/discovery/parse.ts tests/discovery/parse.test.ts
@@ -1398,7 +1398,7 @@ npx vitest run tests/discovery/index.test.ts
 
 预期：PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/discovery/index.ts tests/discovery/index.test.ts
@@ -1705,7 +1705,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：2 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
@@ -1807,7 +1807,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
@@ -1992,7 +1992,7 @@ npx vitest run tests/terminal/escape.test.ts
 
 预期：7 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/terminal/escape.ts tests/terminal/escape.test.ts
@@ -2739,7 +2739,7 @@ kill %1 2>/dev/null || true
 
 预期输出：`cc-session-manager — projects: 0`。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/tui/App.tsx src/cli.tsx
@@ -3978,7 +3978,7 @@ chmod +x scripts/smoke.sh
 
 预期：`SMOKE OK` 输出。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add scripts/smoke.sh src/cli-smoke.ts tsup.config.ts
