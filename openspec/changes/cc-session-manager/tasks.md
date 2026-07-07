@@ -38,7 +38,7 @@
 ## 5. 终端集成
 
 - [x] 5.1 实现 `src/terminal/escape.ts`，提供 AppleScript 字符串插值所需的 shell 安全转义
-- [ ] 5.2 实现 `src/terminal/terminal-app.ts`，使用 `osascript` 打开 Terminal.app 并执行 `cd <cwd> && <cmd>`
+- [x] 5.2 实现 `src/terminal/terminal-app.ts`，使用 `osascript` 打开 Terminal.app 并执行 `cd <cwd> && <cmd>`
 - [ ] 5.3 实现 `src/terminal/iterm2.ts`，使用 iTerm2 的 AppleScript 字典打开新窗口执行命令
 - [ ] 5.4 实现 `src/terminal/warp.ts` 尽力而为实现（打开 Warp，尝试 keystroke 注入，回退到剪贴板）
 - [ ] 5.5 实现 `src/terminal/index.ts` 派发器，读取 `state.terminal` 并调用对应后端
