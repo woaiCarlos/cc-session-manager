@@ -10,7 +10,7 @@
 
 ## 2. 状态持久化
 
-- [ ] 2.1 实现 `src/state/types.ts`，定义 `AppState`、`ManualProject`、`Terminal` 联合类型
+- [x] 2.1 实现 `src/state/types.ts`，定义 `AppState`、`ManualProject`、`Terminal` 联合类型
 - [ ] 2.2 实现 `src/state/store.ts`，提供 `loadState()` 与 `saveState()`，使用原子写入（临时文件 + rename）
 - [ ] 2.3 添加损坏状态恢复：JSON 解析失败时重命名为 `state.json.bak.<timestamp>` 并以默认值重启
 - [ ] 2.4 添加默认值填充：合并已加载状态与默认字段以处理缺失字段

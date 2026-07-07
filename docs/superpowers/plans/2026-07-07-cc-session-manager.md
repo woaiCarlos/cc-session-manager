@@ -929,7 +929,7 @@ git commit -m "feat(state): getAlias/setAlias for session and project keys"
 **Interfaces:**
 - Produces: `detectRoot(): Promise<string|null>`，按 `CLAUDE_CONFIG_DIR` → `$HOME/.claude/projects/` → `$HOME/Library/Application Support/Claude/projects/` 顺序
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 `tests/discovery/detectRoot.test.ts`：
 
@@ -1042,7 +1042,7 @@ git commit -m "feat(discovery): detectRoot with override precedence"
 **Interfaces:**
 - Produces: `listJsonlFiles(rootPath): Promise<string[]>`，递归列出所有 `.jsonl`
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -1135,7 +1135,7 @@ git commit -m "feat(discovery): recursive .jsonl listing"
 **Interfaces:**
 - Produces: `parseJsonlFile(filePath): Promise<SessionMeta|null>`，流式 readline，每行 try/catch
 
-- [ ] **Step 1：写红测（先用文本夹具，准备 fixtures）**
+- [x] **Step 1：写红测（先用文本夹具，准备 fixtures）**
 
 先建立 fixtures 目录脚本：
 
@@ -1322,7 +1322,7 @@ git commit -m "feat(discovery): streaming JSONL parser with per-line fault toler
 **Interfaces:**
 - Produces: `runDiscovery(rootPath, onMeta: (meta: SessionMeta) => void): Promise<void>`，调用 `listJsonlFiles` → 并发 `parseJsonlFile`（限流 4）→ 回调
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -1526,7 +1526,7 @@ git commit -m "test: configure vitest for node environment"
 **Interfaces:**
 - Produces: `groupSessions(sessions, state): Project[]`，纯函数
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -1918,7 +1918,7 @@ git commit -m "feat(grouping): manual-first, recency-second project ordering"
 **Interfaces:**
 - Produces: `escapeForAppleScript(s: string): string`、`buildTerminalAppScript(cwd, command): string`
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -4043,7 +4043,7 @@ git commit -m "feat(distribution): smoke script covering dump, state.json, lock"
 - Create: `tests/util/relative-time.test.ts`
 - Modify: `src/grouping/group.ts`（替换 inline 占位）
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect } from 'vitest';
