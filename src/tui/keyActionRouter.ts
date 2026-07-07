@@ -165,6 +165,7 @@ export function routeKey(
         modal: 'rename',
         ctx: {
           renameKind: 'session',
+          renameTargetId: state.selectedSessionId,
           renameCurrentName:
             state.sessionAliases[state.selectedSessionId] ?? '',
         },

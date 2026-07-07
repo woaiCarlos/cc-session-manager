@@ -367,6 +367,130 @@ describe('App reducer — SESSION_DISCOVERED', () => {
     // 引用稳定（dedupe 命中）
     expect(s2).toBe(s1);
   });
+
+  it('uses alias from state.sessionAliases as displayName when present', () => {
+    // Bug 4 修复：SESSION_DISCOVERED 路径要优先用 alias，跟 group.ts:53 的
+    // sessionDisplayName(meta, alias) 优先级一致。否则后续 rename 走 alias
+    // 但 SESSION_DISCOVERED 又回到 prompt 文本，两条渲染路径不一致。
+    const seed = {
+      ...baseState(),
+      sessionAliases: { 's-alias': '我的别名' },
+    };
+    const meta = makeMeta({
+      sessionId: 's-alias',
+      cwd: '/p1',
+      firstUserMessage: '原始 firstUserMessage',
+      lastPrompt: '原始 lastPrompt',
+    });
+    const after = reducer(seed, { type: 'SESSION_DISCOVERED', meta });
+    expect(after.projects[0]!.sessions[0]!.displayName).toBe('我的别名');
+  });
+
+  it('falls back to lastPrompt / firstUserMessage when no alias is set', () => {
+    // 保持旧行为兼容性：alias 不存在时仍按 prompt 文本。
+    const seed = { ...baseState(), sessionAliases: {} };
+    const meta = makeMeta({
+      sessionId: 's-no-alias',
+      cwd: '/p1',
+      firstUserMessage: 'first message',
+      lastPrompt: '最新 prompt',
+    });
+    const after = reducer(seed, { type: 'SESSION_DISCOVERED', meta });
+    expect(after.projects[0]!.sessions[0]!.displayName).toBe('最新 prompt');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SET_ALIAS — rename 提交后落盘内存更新（Bug 4）
+// ---------------------------------------------------------------------------
+
+describe('App reducer — SET_ALIAS', () => {
+  it('updates state.sessionAliases and the matching Session.displayName in projects (session case)', () => {
+    const proj = makeProject({
+      key: '/p1',
+      sessions: [
+        {
+          id: 'sess-1',
+          displayName: 'old-name',
+          cwd: '/p1',
+          lastActiveRelative: '1h ago',
+          lastTimestamp: '2026-07-07T00:00:00Z',
+        } as Session,
+      ],
+    });
+    const seed = { ...baseState(), projects: [proj] };
+    const next = reducer(seed, {
+      type: 'SET_ALIAS',
+      kind: 'session',
+      key: 'sess-1',
+      name: 'new-name',
+    });
+    expect(next.sessionAliases['sess-1']).toBe('new-name');
+    expect(next.projects[0]!.sessions[0]!.displayName).toBe('new-name');
+    expect(next.projects[0]!.key).toBe('/p1');
+  });
+
+  it('updates state.projectAliases and the matching Project.displayName (project case)', () => {
+    const proj = makeProject({
+      key: '/proj-a',
+      displayName: 'old-project-name',
+      sessions: [],
+    });
+    const seed = { ...baseState(), projects: [proj] };
+    const next = reducer(seed, {
+      type: 'SET_ALIAS',
+      kind: 'project',
+      key: '/proj-a',
+      name: 'new-project-name',
+    });
+    expect(next.projectAliases['/proj-a']).toBe('new-project-name');
+    expect(next.projects[0]!.displayName).toBe('new-project-name');
+  });
+
+  it('leaves other sessions / projects in place when patching one alias', () => {
+    const proj = makeProject({
+      key: '/p1',
+      sessions: [
+        {
+          id: 'sess-1',
+          displayName: 'sess-1-name',
+          cwd: '/p1',
+          lastActiveRelative: '1h ago',
+          lastTimestamp: '2026-07-07T00:00:00Z',
+        } as Session,
+        {
+          id: 'sess-2',
+          displayName: 'sess-2-name',
+          cwd: '/p1',
+          lastActiveRelative: '1h ago',
+          lastTimestamp: '2026-07-07T00:00:00Z',
+        } as Session,
+      ],
+    });
+    const seed = { ...baseState(), projects: [proj] };
+    const next = reducer(seed, {
+      type: 'SET_ALIAS',
+      kind: 'session',
+      key: 'sess-1',
+      name: 'renamed-1',
+    });
+    expect(next.projects[0]!.sessions[0]!.displayName).toBe('renamed-1');
+    expect(next.projects[0]!.sessions[1]!.displayName).toBe('sess-2-name');
+  });
+
+  it('SET_ALIAS for unknown sessionId still writes the alias map (recoverable later)', () => {
+    // alias 先写，项目列表里没有对应 session；当下次 discovery 命中同 id
+    // 时，deriveDisplayName 应当读到该 alias。reducer 层面写 alias map 即可。
+    const seed = baseState();
+    const next = reducer(seed, {
+      type: 'SET_ALIAS',
+      kind: 'session',
+      key: 'unknown',
+      name: 'preload',
+    });
+    expect(next.sessionAliases['unknown']).toBe('preload');
+    expect(next.projects).toEqual([]);
+  });
 });
 
 describe('App reducer — NOTICE', () => {
@@ -409,6 +533,7 @@ describe('App reducer — exhaustiveness', () => {
       { type: 'TOGGLE_FOCUS' },
       { type: 'NOTICE', kind: 'test' },
       { type: 'SCAN_COMPLETE' },
+      { type: 'SET_ALIAS', kind: 'session', key: 'k', name: 'n' },
     ];
     for (const action of allActions) {
       // 不抛错 + 返回 UiState；都满足 = 穷尽

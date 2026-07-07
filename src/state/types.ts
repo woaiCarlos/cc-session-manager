@@ -38,6 +38,7 @@ export type ModalKind = 'none' | 'search' | 'rename' | 'settings' | 'help' | 'co
 export interface ModalContext {
   renameKind?: 'session' | 'project';
   renameId?: string;
+  renameTargetId?: string;
   renameCurrentName?: string;
   warningPid?: number;
   confirmAction?: 'deleteManualProject';

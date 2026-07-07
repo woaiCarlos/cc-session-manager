@@ -200,6 +200,7 @@ describe('routeKey — main view modal opens', () => {
     expect(calls[0].modal).toBe('rename');
     expect(calls[0].ctx).toEqual({
       renameKind: 'session',
+      renameTargetId: 'sess-7',
       renameCurrentName: 'my-alias',
     });
   });
@@ -221,6 +222,7 @@ describe('routeKey — main view modal opens', () => {
     expect(calls[0].modal).toBe('rename');
     expect(calls[0].ctx).toEqual({
       renameKind: 'session',
+      renameTargetId: 'sess-9',
       renameCurrentName: '',
     });
   });

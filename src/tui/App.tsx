@@ -24,6 +24,8 @@ import { routeKey } from './keyActionRouter.js';
 import { addManualProject } from '../actions/addManualProject.js';
 import { copySessionId } from '../actions/copySessionId.js';
 import { deleteManualProject } from '../actions/deleteManualProject.js';
+import { renameSession as renameSessionAction } from '../actions/renameSession.js';
+import { renameProject as renameProjectAction } from '../actions/renameProject.js';
 import { resumeSession } from '../actions/resumeSession.js';
 import { newSession } from '../actions/newSession.js';
 import { release as releaseLock } from '../state/lock.js';
@@ -45,7 +47,14 @@ export type Action =
   | { type: 'FOCUS_PANE'; pane: 'projects' | 'sessions' }
   | { type: 'TOGGLE_FOCUS' }
   | { type: 'NOTICE'; kind: string; payload?: unknown; message?: string }
-  | { type: 'SCAN_COMPLETE' };
+  | { type: 'SCAN_COMPLETE' }
+  /** Bug 4 修复：rename 提交时把 alias 写入 state 并同步更新对应项目/会话的 displayName */
+  | {
+      type: 'SET_ALIAS';
+      kind: 'session' | 'project';
+      key: string;
+      name: string;
+    };
 
 // ---------------------------------------------------------------------------
 // UiState = 持久化 AppState + 纯 UI 字段
@@ -115,9 +124,13 @@ export function reducer(state: UiState, action: Action): UiState {
       // 算法：按 meta.cwd 找/建 project → project.sessions 中按 lastTimestamp
       // 倒序插入新 session → 若新 project 不在列表则追加 → 列表按 manual
       // 优先 + 最近时间倒序。
+      //
+      // displayName 优先级与 `group.ts:53` 的 `sessionDisplayName(meta, alias)`
+      // 一致：alias → lastPrompt → firstUserMessage → sessionId。
       const meta = action.meta;
+      const alias = state.sessionAliases[meta.sessionId];
       const projects = state.projects.slice();
-      const displayName = deriveDisplayName(meta);
+      const displayName = deriveDisplayName(meta, alias);
       const newSession: Session = {
         id: meta.sessionId,
         displayName,
@@ -152,6 +165,29 @@ export function reducer(state: UiState, action: Action): UiState {
     case 'SET_PROJECTS':
       if (state.projects === action.projects) return state;
       return { ...state, projects: action.projects };
+    case 'SET_ALIAS': {
+      // Bug 4 修复：rename 提交落盘成功后 dispatch，局部更新 alias map
+      // 以及 state.projects 中匹配 Session/Project 的 displayName，让 UI
+      // 立即呈现新名（无需重新扫描或 BOOTSTRAP）。
+      if (action.kind === 'session') {
+        const aliases = { ...state.sessionAliases, [action.key]: action.name };
+        const projects = state.projects.map((p) => ({
+          ...p,
+          sessions: p.sessions.map((s) =>
+            s.id === action.key ? { ...s, displayName: action.name } : s,
+          ),
+        }));
+        return { ...state, sessionAliases: aliases, projects };
+      }
+      const aliases = {
+        ...state.projectAliases,
+        [action.key]: action.name,
+      };
+      const projects = state.projects.map((p) =>
+        p.key === action.key ? { ...p, displayName: action.name } : p,
+      );
+      return { ...state, projectAliases: aliases, projects };
+    }
     case 'SET_TERMINAL':
       return { ...state, terminal: action.terminal };
     case 'SET_SEARCH':
@@ -193,7 +229,12 @@ export function reducer(state: UiState, action: Action): UiState {
 // design.md §4 and keep the reducer self-contained.
 // ---------------------------------------------------------------------------
 
-function deriveDisplayName(meta: SessionMeta): string {
+function deriveDisplayName(meta: SessionMeta, alias?: string): string {
+  // 与 `group.ts:53` 的 sessionDisplayName(meta, alias) 同优先级：alias →
+  // lastPrompt → firstUserMessage → sessionId。Bug 4 修复：alias 非空时
+  // 直接返回，不再 fall back 到 prompt 文本，确保 SESSION_DISCOVERED 路径
+  // 和 groupSessions 路径对同一份 (meta, alias) 给出相同的 displayName。
+  if (alias) return alias;
   const text = meta.lastPrompt ?? meta.firstUserMessage;
   if (typeof text !== 'string' || text.length === 0) {
     return meta.sessionId;
@@ -397,10 +438,49 @@ export const App: React.FC<AppProps> = ({
         <RenameModal
           initial={state.modalContext.renameCurrentName ?? ''}
           kind={state.modalContext.renameKind ?? 'session'}
-          onSubmit={() => {
-            /* 真正写 alias 的派发由 renameProject / renameSession action
-               在后续 task 内联；本任务仅挂 UI 与 keybinding 接线。 */
+          onSubmit={(newName) => {
+            // Bug 4 修复：原占位 onSubmit 已替换为真落盘。流程：
+            //   1. 校验目标 ID 与新名（非空）
+            //   2. 同步 dispatch CLOSE_MODAL，让用户立刻看到反馈
+            //   3. 异步 await renameSession / renameProject action
+            //      - 成功：dispatch SET_ALIAS → state.projects 中目标行的
+            //        displayName 立即刷新，UI 列出新名；
+            //      - 失败：dispatch NOTICE，错误在 status bar 显示（模态
+            //        已关，避免与 selectedSessionId 已变更的竞态）。
+            const safeName = newName.trim();
+            const kind = state.modalContext.renameKind ?? 'session';
+            const targetId =
+              state.modalContext.renameTargetId ??
+              (kind === 'session'
+                ? state.selectedSessionId
+                : state.selectedProjectKey);
+            if (typeof targetId !== 'string' || safeName.length === 0) {
+              // 校验失败直接关模态，原 alias 保持不变
+              dispatch({ type: 'CLOSE_MODAL' });
+              return;
+            }
             dispatch({ type: 'CLOSE_MODAL' });
+            const persist =
+              kind === 'session'
+                ? renameSessionAction(targetId, safeName)
+                : renameProjectAction(targetId, safeName);
+            void persist
+              .then(() => {
+                dispatch({
+                  type: 'SET_ALIAS',
+                  kind,
+                  key: targetId,
+                  name: safeName,
+                });
+              })
+              .catch((err: unknown) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                dispatch({
+                  type: 'NOTICE',
+                  kind: 'error',
+                  message: `Rename failed: ${msg}`,
+                });
+              });
           }}
           onCancel={() => dispatch({ type: 'CLOSE_MODAL' })}
         />
