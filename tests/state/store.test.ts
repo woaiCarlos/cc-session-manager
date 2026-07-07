@@ -1,0 +1,55 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { DEFAULT_STATE } from '../../src/state/types.js';
+import type {
+  loadState as LoadStateFn,
+  saveState as SaveStateFn,
+  resetForTest as ResetForTestFn,
+  STATE_PATH as StatePathConst,
+} from '../../src/state/store.js';
+
+type StoreModule = {
+  loadState: typeof LoadStateFn;
+  saveState: typeof SaveStateFn;
+  resetForTest: typeof ResetForTestFn;
+  STATE_PATH: typeof StatePathConst;
+};
+
+let tmpDir: string;
+let originalEnv: NodeJS.ProcessEnv;
+let store: StoreModule;
+
+beforeEach(async () => {
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ccsm-store-'));
+  originalEnv = { ...process.env };
+  process.env.HOME = tmpDir;
+  process.env.XDG_CONFIG_HOME = path.join(tmpDir, '.config');
+  // Re-import store module so CONFIG_DIR/STATE_PATH resolve against
+  // the test-controlled env vars (module-level consts capture env at load time).
+  vi.resetModules();
+  store = (await import('../../src/state/store.js')) as unknown as StoreModule;
+  await store.resetForTest();
+});
+
+afterEach(async () => {
+  process.env = originalEnv;
+  await fs.rm(tmpDir, { recursive: true, force: true });
+});
+
+describe('store', () => {
+  it('returns defaults when no state file exists', async () => {
+    const state = await store.loadState();
+    expect(state).toEqual(DEFAULT_STATE);
+  });
+
+  it('writes and reads back state atomically', async () => {
+    await store.saveState({ ...DEFAULT_STATE, terminal: 'iterm2' });
+    const state = await store.loadState();
+    expect(state.terminal).toBe('iterm2');
+    // 不应残留 .tmp 文件
+    const files = await fs.readdir(path.dirname(store.STATE_PATH));
+    expect(files.filter((f) => f.includes('.tmp.'))).toEqual([]);
+  });
+});
