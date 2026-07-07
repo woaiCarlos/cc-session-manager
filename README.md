@@ -71,12 +71,18 @@ npx cc-session-manager
 ### 验证安装
 
 ```bash
-ccsm --version
-# 或
 which ccsm
+ls -la "$(which ccsm)"
+head -1 "$(which ccsm)"
+readlink -f "$(which ccsm)"
 ```
 
-预期：`which ccsm` 输出形如 `/usr/local/bin/ccsm`（或你 npm 全局 bin 路径下）。
+预期：
+- `which ccsm` 输出形如 `/usr/local/bin/ccsm`（Intel Mac 默认）或 `/opt/homebrew/bin/ccsm`（Apple Silicon 默认），具体路径取决于你的 npm 全局 prefix。
+- `ls -la` 显示该路径是符号链接，最终 `readlink -f` 解析到包内的 `dist/cli.js`。
+- `head -1` 首行是 `#!/usr/bin/env node`（shebang）。
+
+> 注：当前版本 `ccsm` 尚未实现 `--version` / `--help` 等子命令，启动时未读取 `argv`，调用它们会直接进入 TUI。在无 TTY 环境（例如 `ccsm </dev/null`）会干净退出（exit=0），可作为最低生命体征检查。
 
 ### 卸载
 
@@ -156,7 +162,7 @@ ccsm
 | `d` | 删除当前手动项目（需确认） |
 | `a` | 添加手动项目（弹出 macOS 原生文件夹选择器） |
 | `/` | 打开搜索框，按名称 / cwd / 首条消息过滤 |
-| `,` | 打开设置（修改 session 根目录 / 切换默认终端） |
+| `,` | 打开设置（修改 session 根目录） |
 
 ### 退出
 
@@ -185,7 +191,7 @@ ccsm
 
 ### 切换默认终端
 
-按 `,` 打开设置 → 在 Terminal / iTerm2 / Warp 三者中单选 → `Enter` 保存。配置写入 `~/.config/cc-manager/state.json`。
+> **当前实现状态**：设置模态（按 `,` 打开）目前仅支持修改 session 根目录；默认终端**不能**通过 UI 切换（SettingsModal 提示的 `T` 键循环尚未接线，代码中 `setTerm` 为占位）。如需切换，请手动编辑 `~/.config/cc-manager/state.json` 中的 `terminal` 字段（值取 `"terminal"` / `"iterm2"` / `"warp"` 之一），重启 `ccsm` 后生效。后续版本会在 SettingsModal 内补上 T 键循环切换。
 
 ### 终端支持说明
 
@@ -283,9 +289,9 @@ ls ~/.claude/projects/-Users-carlos-workspace-cc-manager/*.jsonl | head -5
 
 并以默认值重启，**不会**影响 Claude Code 任何数据。可在排查后手动从 `.bak` 恢复。
 
-### 6. 终端宽度 < 80 列时 UI 显示错位
+### 6. 终端宽度 < 100 列时 UI 显示错位
 
-TUI 设计支持 ≥ 80 列窄屏；< 80 列时部分边框可能截断。建议把终端窗口拉宽，或在 Terminal.app / iTerm2 设置中调大字体后缩小窗口列数。
+TUI 在 `cols < 100` 时自动进入 compact 模式（隐藏 `(manual)` 标记与 session 计数等次要字段），但仍依赖足够宽度渲染双 pane 边框。建议把终端窗口拉宽到 ≥ 100 列，或在 Terminal.app / iTerm2 设置中调大字体后缩小窗口列数。
 
 ### 7. 报错 `Cannot find module 'ink'` 等
 
@@ -300,11 +306,14 @@ rm -rf node_modules && npm install
 提交 issue 时附上：
 
 ```bash
-ccsm --version
 node --version
 sw_vers                     # macOS 版本
 ls ~/.claude/projects/ | wc -l
+# 如已通过 npm link 安装，可附 ccsm 解析路径：
+readlink -f "$(which ccsm)"
 ```
+
+> 注：`ccsm --version` 当前未实现；如需查看版本，从包源码执行 `node -e "console.log(require('./package.json').version)"` 即可。
 
 ---
 
