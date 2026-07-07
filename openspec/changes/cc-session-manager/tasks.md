@@ -23,7 +23,7 @@
 - [x] 3.2 实现 `src/discovery/scan.ts`，递归列出根目录下所有 `*.jsonl` 文件
 - [x] 3.3 实现 `src/discovery/parse.ts`，从 JSONL 文件提取 `SessionMeta`（sessionId、cwd、firstUserMessage、lastTimestamp），每行 try/catch 隔离
 - [x] 3.4 实现 `src/discovery/index.ts` 协调器：探测根目录 → 列出文件 → 并行解析（限制并发数）
-- [ ] 3.5 引入后台扫描：暴露 async generator 或回调 API，使 UI 能在扫描完成前渲染
+- [x] 3.5 引入后台扫描：暴露 async generator 或回调 API，使 UI 能在扫描完成前渲染
 - [ ] 3.6 使用 vitest 或 node:test 添加基础单元测试，解析合成 JSONL 夹具
 
 ## 4. 项目分组
