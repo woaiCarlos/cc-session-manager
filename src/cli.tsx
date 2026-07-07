@@ -113,8 +113,26 @@ export async function bootstrap(
   // _onSession 由 App 通过 onSession prop 注入；onMeta 转发给它。
   // _onScanComplete 同理。这样 React state 路径成为唯一渲染通道，
   // 避免 630 session × 2 render 的 flicker。
-  let _onSession: (meta: SessionMeta) => void = () => {};
+  // NOOP_SESSION 是 _onSession 的初始哨兵；drainPendingMetas 用它检测
+  // 「onSession 还没被新 App 注册」的状态，避免把 meta 派发给旧 wrapper。
+  const NOOP_SESSION = (): void => {};
+  let _onSession: (meta: SessionMeta) => void = NOOP_SESSION;
   let _onScanComplete: () => void = () => {};
+  // Bug A 回归：rescanSession 派发的 meta 必须落到**新 App 实例**的 reducer。
+  // 之前的实现假设 `child.on('exit')` 内先 render、后 rescanSession 的顺序
+  // 就够了 —— 但 React 的 useEffect 是异步的，新 App 的 onSession setter
+  // 要在下个 macrotask 才把 _onSession 切到新 wrapper。如果 parseJsonlFile
+  // 在这个窗口里 resolve，就会把 meta 派发给旧 wrapper（已 unmount），
+  // UI 不刷新。修复：把 rescan 拿到的 meta 先压入 pendingMetas，等 onSession
+  // setter 触发时再 drain 到新 wrapper。
+  const pendingMetas: SessionMeta[] = [];
+  const drainPendingMetas = (): void => {
+    if (_onSession === NOOP_SESSION) return;
+    while (pendingMetas.length > 0) {
+      const meta = pendingMetas.shift()!;
+      _onSession(meta);
+    }
+  };
   // Bug 4d：cli 在 runDiscovery 完成后把 sessionId → jsonlPath 索引交给
   // App，rename modal onSubmit 用 jsonlIndex[sessionId] 定位 JSONL，
   // 把 custom-title 写回到 Claude Code 自己的 session 文件。
@@ -127,6 +145,8 @@ export async function bootstrap(
       jsonlIndex,
       onSession: (cb: (meta: SessionMeta) => void) => {
         _onSession = cb;
+        // 新 App mount 时把之前 buffered 的 meta 全部派发给它
+        drainPendingMetas();
       },
       onScanComplete: (cb: () => void) => {
         _onScanComplete = cb;
@@ -172,7 +192,11 @@ export async function bootstrap(
         try {
           const parsed = await parseJsonlFile(jsonlPath);
           if (parsed && parsed.meta.sessionId === sessionId) {
-            _onSession(parsed.meta);
+            // Bug A 回归修复：buffer 到 pendingMetas，等新 App 的
+            // onSession setter 触发时再 drain。即使 parseJsonlFile 在
+            // 新 App mount 之前 resolve，meta 也不会丢失。
+            pendingMetas.push(parsed.meta);
+            drainPendingMetas();
           }
         } catch (err) {
           // eslint-disable-next-line no-console

@@ -477,4 +477,89 @@ describe('cli bootstrap', () => {
       parseSpy.mockRestore();
     }
   });
+
+  it('Bug A 回归：rescan 在新 App mount 之前完成，meta 仍然派发到新 App (pendingMetas buffer)', async () => {
+    // 用户报告：从 Claude Code 退出后，session 名不刷新；只有重启 ccsm 后
+    // 才看到新名。根因：child.on('exit') 内顺序调 deps.render + deps.rescan，
+    // 但 React 的 useEffect 是异步的，新 App 的 onSession setter 在下个
+    // macrotask 才把 _onSession 切到新 wrapper。如果 parseJsonlFile 在这个
+    // 窗口里 resolve，meta 会派发给旧 wrapper（已 unmount）→ UI 不刷新。
+    // 修复：rescan 拿到的 meta 先压入 pendingMetas，等 onSession setter
+    // 触发时 drain。本测试模拟「rescan 完成早于 onSession setter」这一时序。
+    let registeredRescan: ((jsonlPath: string, sessionId: string) => void) | null =
+      null;
+    let pendingOnSessionSetter: ((cb: (m: SessionMeta) => void) => void) | null =
+      null;
+
+    const terminal = await import('../../src/terminal/current.js');
+    const setDepsSpy = vi.spyOn(terminal, 'setCurrentTerminalDeps').mockImplementation(
+      (d) => {
+        const captured = d as { rescanSession?: (jsonlPath: string, sessionId: string) => void };
+        registeredRescan = captured.rescanSession ?? null;
+      },
+    );
+
+    // 让 parseJsonlFile 在同一个 tick 同步 resolve（早于任何 React useEffect）。
+    const parseSpy = vi
+      .spyOn(await import('../../src/discovery/parse.js'), 'parseJsonlFile')
+      .mockImplementation(async (file: string) => {
+        // 关键：这里 await 0 个 microtask 就 resolve，模拟「rescan 完成
+        // 早于新 App mount 的 onSession setter」。
+        await Promise.resolve();
+        return {
+          meta: {
+            sessionId: 'sid-pending',
+            cwd: '/p1',
+            firstUserMessage: null,
+            lastPrompt: null,
+            customTitle: '新名字',
+            lastTimestamp: '2026-07-07T01:00:00.000Z',
+            sizeBytes: 4096,
+            lineCount: 50,
+          },
+          jsonlPath: file,
+        };
+      });
+
+    try {
+      const receivedMetas: SessionMeta[] = [];
+      const deps = makeDeps({
+        render: vi.fn((element: unknown) => {
+          const props = (element as { props: Record<string, unknown> }).props;
+          // 故意不在 render 时立刻调 onSession setter —— 模拟 React useEffect
+          // 是异步的，setter 在下个 tick 才跑。
+          if (typeof props.onSession === 'function') {
+            pendingOnSessionSetter = props.onSession as (
+              cb: (m: SessionMeta) => void,
+            ) => void;
+          }
+          return { unmount: vi.fn(), rerender: vi.fn() };
+        }),
+        runDiscovery: vi.fn(async () => {}),
+      });
+
+      await bootstrap(deps);
+      expect(registeredRescan).not.toBeNull();
+
+      // 1) 'current' backend 在 child exit 后调用 rescan（早于任何 useEffect）
+      registeredRescan!('/data/sid-pending.jsonl', 'sid-pending');
+
+      // 2) 等 parseJsonlFile 的 await 跑完，但此时还没有 onSession setter
+      await new Promise((r) => setTimeout(r, 10));
+      expect(receivedMetas).toHaveLength(0); // pendingMetas 应 buffer 住
+
+      // 3) React 在下个 macrotask 跑 useEffect → 调 onSession setter
+      expect(pendingOnSessionSetter).not.toBeNull();
+      pendingOnSessionSetter!((m) => receivedMetas.push(m));
+
+      // 4) pendingMetas 立即被 drain 到新 wrapper
+      expect(receivedMetas).toHaveLength(1);
+      expect(receivedMetas[0]!.customTitle).toBe('新名字');
+      expect(receivedMetas[0]!.sizeBytes).toBe(4096);
+      expect(parseSpy).toHaveBeenCalledWith('/data/sid-pending.jsonl');
+    } finally {
+      setDepsSpy.mockRestore();
+      parseSpy.mockRestore();
+    }
+  });
 });
