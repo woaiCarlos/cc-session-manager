@@ -8,6 +8,8 @@ import type {
   saveState as SaveStateFn,
   resetForTest as ResetForTestFn,
   getSessionRoot as GetSessionRootFn,
+  getAlias as GetAliasFn,
+  setAlias as SetAliasFn,
   STATE_PATH as StatePathConst,
 } from '../../src/state/store.js';
 
@@ -16,6 +18,8 @@ type StoreModule = {
   saveState: typeof SaveStateFn;
   resetForTest: typeof ResetForTestFn;
   getSessionRoot: typeof GetSessionRootFn;
+  getAlias: typeof GetAliasFn;
+  setAlias: typeof SetAliasFn;
   STATE_PATH: typeof StatePathConst;
 };
 
@@ -109,5 +113,23 @@ describe('store', () => {
     await store.saveState({ ...DEFAULT_STATE });
     const root = await store.getSessionRoot(async () => null);
     expect(root).toBeNull();
+  });
+
+  it('getAlias returns undefined for missing key (Task 2.6)', async () => {
+    expect(await store.getAlias('session', 'nope')).toBeUndefined();
+    expect(await store.getAlias('project', '/missing/path')).toBeUndefined();
+  });
+
+  it('setAlias/getAlias stores and reads back session alias (Task 2.6)', async () => {
+    await store.setAlias('session', 'abc-123', 'My login bug');
+    expect(await store.getAlias('session', 'abc-123')).toBe('My login bug');
+    // 同步落盘
+    await store.resetForTest();
+    expect(await store.getAlias('session', 'abc-123')).toBe('My login bug');
+  });
+
+  it('setAlias/getAlias stores project alias keyed by group key (Task 2.6)', async () => {
+    await store.setAlias('project', '/Users/carlos/foo', 'Foo project');
+    expect(await store.getAlias('project', '/Users/carlos/foo')).toBe('Foo project');
   });
 });

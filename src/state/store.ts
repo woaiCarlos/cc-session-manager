@@ -73,3 +73,25 @@ export async function getSessionRoot(
   const state = await loadState();
   return state.sessionRoot ?? (await detect());
 }
+
+export async function getAlias(
+  type: 'session' | 'project',
+  key: string
+): Promise<string | undefined> {
+  const state = await loadState();
+  const map = type === 'session' ? state.sessionAliases : state.projectAliases;
+  return map[key];
+}
+
+export async function setAlias(
+  type: 'session' | 'project',
+  key: string,
+  value: string
+): Promise<void> {
+  const state = await loadState();
+  const next: AppState =
+    type === 'session'
+      ? { ...state, sessionAliases: { ...state.sessionAliases, [key]: value } }
+      : { ...state, projectAliases: { ...state.projectAliases, [key]: value } };
+  await saveState(next);
+}
