@@ -1,31 +1,63 @@
-/**
- * Lock release stub — invoked by the App's quit path (`q` / Ctrl+C) and the
- * shutdown escalator before the process exits.
- *
- * Lock acquisition (`tryAcquire`) is wired in the bootstrap pipeline (see
- * `src/cli.tsx` design comment for ordering); this module currently exposes
- * only the symmetric release side. The release is intentionally idempotent
- * — repeated calls (or calls without a prior acquire) must not throw.
- *
- * Implementation: writes nothing for now (acquisition-side persistence is a
- * later task). The function exists so that the runtime side effect declared
- * in the brief resolves at the type level and so that subsequent work can
- * replace this body without touching App.tsx or cli.tsx.
- */
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { CONFIG_DIR } from './store.js';
 
-let released = 0;
+const LOCK_PATH = path.join(CONFIG_DIR, 'lock');
 
-/** Release the run-level lock. Idempotent; resolves even if not held. */
+interface LockData {
+  pid: number;
+  timestamp: number;
+}
+
+async function readLock(): Promise<LockData | null> {
+  try {
+    const raw = await fs.readFile(LOCK_PATH, 'utf8');
+    return JSON.parse(raw) as LockData;
+  } catch {
+    return null;
+  }
+}
+
+async function writeLock(pid: number): Promise<void> {
+  const data: LockData = { pid, timestamp: Date.now() };
+  await fs.mkdir(CONFIG_DIR, { recursive: true });
+  await fs.writeFile(LOCK_PATH, JSON.stringify(data, null, 2), 'utf8');
+}
+
+export async function tryAcquire(): Promise<'acquired' | 'taken' | 'stale'> {
+  await fs.mkdir(CONFIG_DIR, { recursive: true });
+  const existing = await readLock();
+  if (!existing) {
+    await writeLock(process.pid);
+    return 'acquired';
+  }
+  try {
+    process.kill(existing.pid, 0);
+    return 'taken';
+  } catch {
+    // dead PID
+  }
+  const ageMs = Date.now() - existing.timestamp;
+  if (ageMs > 24 * 60 * 60 * 1000) {
+    await writeLock(process.pid);
+    return 'stale';
+  }
+  return 'taken';
+}
+
 export async function release(): Promise<void> {
-  released += 1;
-  return;
+  try {
+    const existing = await readLock();
+    if (existing?.pid === process.pid) {
+      await fs.unlink(LOCK_PATH);
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
-/** Test-only inspection: number of times release() has been called. */
-export function _releaseCountForTest(): number {
-  return released;
-}
-
-export async function resetForTest(): Promise<void> {
-  released = 0;
-}
+process.on('exit', () => void release());
+process.on('SIGINT', () => {
+  void release();
+  process.exit(0);
+});
