@@ -370,10 +370,22 @@ describe('App reducer — SESSION_DISCOVERED', () => {
 });
 
 describe('App reducer — NOTICE', () => {
-  it('is a no-op placeholder (lastAction 走 effect 路径)', () => {
+  it('writes lastAction with the given kind so status-bar can render it', () => {
     const before = baseState();
     const after = reducer(before, { type: 'NOTICE', kind: 'resumed' });
-    expect(after).toBe(before);
+    expect(after.lastAction).not.toBeNull();
+    expect(after.lastAction?.kind).toBe('resumed');
+  });
+
+  it('surfaces resume errors via lastAction.payload', () => {
+    const before = baseState();
+    const after = reducer(before, {
+      type: 'NOTICE',
+      kind: 'error',
+      message: 'Resume failed: terminal not found',
+    });
+    expect(after.lastAction?.kind).toBe('error');
+    expect(after.lastAction?.payload).toBe('Resume failed: terminal not found');
   });
 });
 
