@@ -53,6 +53,17 @@ describe('store', () => {
     expect(files.filter((f) => f.includes('.tmp.'))).toEqual([]);
   });
 
+  it('merges defaults when fields are missing (Task 2.4)', async () => {
+    await fs.mkdir(path.dirname(store.STATE_PATH), { recursive: true });
+    await fs.writeFile(store.STATE_PATH, JSON.stringify({ terminal: 'warp' }));
+    await store.resetForTest();
+    const state = await store.loadState();
+    expect(state.terminal).toBe('warp');
+    expect(state.sessionAliases).toEqual({});
+    expect(state.manualProjects).toEqual([]);
+    expect(state.hiddenProjects).toEqual([]);
+  });
+
   it('backs up corrupt state.json and falls back to defaults (Task 2.3)', async () => {
     // 1. 准备：模拟上次进程留下的损坏文件（config 目录 + state.json 已存在）
     await fs.mkdir(path.dirname(store.STATE_PATH), { recursive: true });
