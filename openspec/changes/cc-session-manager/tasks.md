@@ -67,7 +67,7 @@
 - [x] 7.8 实现 `src/tui/modals/HelpModal.tsx`，列出所有键位
 - [x] 7.9 实现 `src/tui/modals/ConfirmModal.tsx`，用于删除确认
 - [x] 7.10 实现 `src/tui/components/StatusBar.tsx`，显示当前选择、扫描进度、最近操作通知
-- [ ] 7.11 实现 `src/tui/components/EmptyState.tsx`，含引导文案
+- [x] 7.11 实现 `src/tui/components/EmptyState.tsx`，含引导文案
 - [ ] 7.12 绑定 `Tab` 在两个 pane 间切换焦点并更新视觉高亮
 - [ ] 7.13 绑定 `/` 打开 SearchModal 并按查询过滤 session
 - [ ] 7.14 绑定 `r`、`n`、`a`、`d`、`c`、`,`、`?`、`q`、`Ctrl+C` 到对应 action/modal
