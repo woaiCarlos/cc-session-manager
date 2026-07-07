@@ -32,7 +32,7 @@
 - [x] 4.2 应用显示名优先级：用户别名 → 首条 user 消息截断 → cwd basename
 - [x] 4.3 每个项目内 session 按 `lastTimestamp` 倒序排列
 - [x] 4.4 将 state 中的 `manualProjects` 合并进项目列表，区分 `manual: true` 与自动派生
-- [ ] 4.5 应用 state 中的 `hiddenProjects` 过滤
+- [x] 4.5 应用 state 中的 `hiddenProjects` 过滤
 - [ ] 4.6 项目排序：手动项目优先，再按最近 session 时间戳倒序
 
 ## 5. 终端集成
