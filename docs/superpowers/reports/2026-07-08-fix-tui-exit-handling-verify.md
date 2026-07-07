@@ -124,14 +124,58 @@
 
 修复后：`tests/tui/keyActionRouter.test.ts (33 tests)` 全绿；全量 32 文件 / 325 用例通过；tsup build 成功。
 
+## 新增 commit：Bug 4 修复（重命名数据闭环）
+
+用户报告第 4 个 bug：明明重命名成功了，但 session 名称在列表里没正确显示（典型：「飞牛内网穿透」改完仍看原名）。已并入本次 change，再次 rewind → build → fix → verify。
+
+**根因两层（用户的「字段取错了」方向正确）**：
+1. `App.tsx` 的 rename modal `onSubmit` 是占位（`App.tsx:400-404`），只 dispatch CLOSE_MODAL，从未调用 `renameSession` / `renameProject` action —— 任何 rename 都「看起来成功但没落盘」。
+2. reducer 内的 `deriveDisplayName(meta)` 在 `SESSION_DISCOVERED` 路径下只看 `lastPrompt ?? firstUserMessage`，不看 `state.sessionAliases` —— 即使将来修了落盘，已塑好的 `Session.displayName` 也不会被刷新。两条渲染路径优先级与 `group.ts:53` 的 `sessionDisplayName(meta, alias)` 不一致。
+
+**改动**（5 个文件）：
+- `src/state/types.ts` — `ModalContext` 增 `renameTargetId?: string`
+- `src/tui/keyActionRouter.ts` — R 键 dispatch 的 `ctx` 增 `renameTargetId: state.selectedSessionId`
+- `src/tui/App.tsx`:
+  - `Action` 联合类型加 `SET_ALIAS { kind, key, name }`
+  - reducer 加 `SET_ALIAS` case：patch `state.sessionAliases` / `state.projectAliases` 同时 patch `state.projects` 中匹配条目 `displayName`
+  - `deriveDisplayName(meta, alias?)` 加第二参数；`SESSION_DISCOVERED` 调用时传 `state.sessionAliases[meta.sessionId]`；alias-first 优先级
+  - rename modal `onSubmit` 实际调用 `renameSessionAction` / `renameProjectAction`，同步 dispatch CLOSE_MODAL → 异步落盘成功后 dispatch SET_ALIAS 让 UI 立即刷新；落盘失败 dispatch NOTICE（status-bar 显示，模态不重开）
+  - 顶部 imports 加 `renameSession` / `renameProject` action
+- `tests/tui/App.test.ts` — 6 个新 reducer 测试 + exhaustiveness entry
+- `tests/tui/keyActionRouter.test.ts` — 现有 R 键场景的 `ctx` 断言加 `renameTargetId`
+
+**TDD 红绿证据（修复前）**：
+
+```
+× "r" in sessions pane with a selected session opens rename modal pre-filled with the alias
+  → expected ctx: { renameKind, renameTargetId: 'sess-7', renameCurrentName } but got { renameKind, renameCurrentName }
+× "r" in sessions pane with selected session but no alias opens rename modal with empty initial
+  → similar mismatch
+× SET_ALIAS updates state.sessionAliases and the matching Session.displayName (session case)
+  → reducer returned original state (case not handled in reducer)
+× SET_ALIAS updates state.projectAliases and the matching Project.displayName (project case)
+× SESSION_DISCOVERED uses alias from state.sessionAliases as displayName when present
+× SET_ALIAS leaves other sessions / projects in place when patching one alias
+× SET_ALIAS for unknown sessionId still writes the alias map (recoverable later)
+× App reducer — exhaustiveness › handles every Action kind without throwing
+  → got thrown: never handler matched type 'SET_ALIAS'
+```
+
+修复后：`tests/tui/App.test.ts (39 tests)` 与 `tests/tui/keyActionRouter.test.ts (33 tests)` 全绿；32 文件 / **331 用例**通过；tsup build 成功（dist/cli.js 42.35 KB）。
+
+**Commit:** `1a15349 fix(tui): wire rename modal to action layer and honor aliases`
+
+---
+
 ## 下一步
 
 1. 用户在真实终端跑 `node dist/cli.js`（或 `npm run dev`）：
    - 进 TUI 后按 `Ctrl+C` → 进程退出，`ps -ef | grep ccsm` 无残留（Bug 2 已修）
    - 设置 terminal 为 `current`，恢复一个 session 等其退出 → TUI 显示完整列表（Bug 1 已修）
    - 进 TUI 焦点在项目侧按 `R` → 没有任何模态弹出（Bug 3 已修）
-   - 切到 sessions pane 选中一个 session 按 `R` → 弹出 rename 模态，预填当前 alias，可删可改（Bug 3 已修）
+   - 切到 sessions pane 选中一个 session 按 `R` → 弹出 rename 模态，预填当前 alias，可删可改；按 Enter 提交后 **会话列表立即展示新名**（Bug 4 已修）
+   - 重启 ccsm → 新名仍持久化生效（`state.json` 已落盘）
 2. 用户回复「通过」后，由本次会话继续：
    - 运行 `node "$COMET_GUARD" fix-tui-exit-handling verify --apply`
-   - 调用 `/comet-archive`（归档前最终确认由 comet-archive 内部完成；这次包含 R 键的 MODIFIED delta 同步到 main spec）
+   - 调用 `/comet-archive`（归档前最终确认由 comet-archive 内部完成；这次包含 4 个 bug 的 MODIFIED delta 一并同步到 main spec）
 3. 用户也可选择中途改主意 → 重新打开 `finishing-a-development-branch` 选 Option 1（merge 到 main）/ 2（push & PR）/ 4（discard）
