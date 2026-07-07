@@ -17,6 +17,13 @@
     "ink"
   ],
   "license": "MIT",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/cli.tsx",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "engines": {
     "node": ">=18"
   },
