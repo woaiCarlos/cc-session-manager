@@ -52,4 +52,31 @@ describe('store', () => {
     const files = await fs.readdir(path.dirname(store.STATE_PATH));
     expect(files.filter((f) => f.includes('.tmp.'))).toEqual([]);
   });
+
+  it('backs up corrupt state.json and falls back to defaults (Task 2.3)', async () => {
+    // 1. 准备：模拟上次进程留下的损坏文件（config 目录 + state.json 已存在）
+    await fs.mkdir(path.dirname(store.STATE_PATH), { recursive: true });
+    const corruptPayload = '{ this is :: not valid json, "terminal": ';
+    await fs.writeFile(store.STATE_PATH, corruptPayload, 'utf8');
+    expect(await fs.readdir(path.dirname(store.STATE_PATH))).toContain('state.json');
+
+    // 2. 执行：本进程首次 loadState（cache 为 null），必须捕获 JSON 解析错误
+    const state = await store.loadState();
+    expect(state).toEqual(DEFAULT_STATE);
+
+    // 3. 验证：原 state.json 必须被重命名为 state.json.bak.<timestamp>
+    const configDir = path.dirname(store.STATE_PATH);
+    const filesAfter = await fs.readdir(configDir);
+    expect(filesAfter).not.toContain('state.json');
+    const backups = filesAfter.filter((f) => f.startsWith('state.json.bak.'));
+    expect(backups).toHaveLength(1);
+    // 备份内容必须是导致解析失败的原始字节
+    const backupContent = await fs.readFile(path.join(configDir, backups[0]!), 'utf8');
+    expect(backupContent).toBe(corruptPayload);
+
+    // 4. 验证：loadState 之后进程能以默认值继续工作（写新值 → 读回）
+    await store.saveState({ ...DEFAULT_STATE, terminal: 'warp' });
+    const reloaded = await store.loadState();
+    expect(reloaded.terminal).toBe('warp');
+  });
 });
