@@ -41,7 +41,7 @@ function makeDeps(overrides: Partial<Parameters<typeof bootstrap>[0]> = {}) {
     detectRoot: vi.fn(async () => '/detected/root'),
     runDiscovery: vi.fn(async () => {}),
     groupSessions: vi.fn((_metas: SessionMeta[], _state: AppState) => [] as Project[]),
-    render: vi.fn(() => ({ unmount: vi.fn() })),
+    render: vi.fn(() => ({ unmount: vi.fn(), rerender: vi.fn() })),
     exit: vi.fn(() => {}),
     stderrWrite: vi.fn(() => true),
     ...overrides,
@@ -184,6 +184,61 @@ describe('cli bootstrap', () => {
     expect(props.projects).toEqual([]);
     expect(typeof props.onSession).toBe('function');
     expect(typeof props.onScanComplete).toBe('function');
+  });
+
+  it('rerenders with a new projects array when discovery groups change', async () => {
+    const discoveredProject: Project = {
+      key: '/p1',
+      displayName: 'p1',
+      cwd: '/p1',
+      manual: false,
+      hidden: false,
+      sessions: [
+        {
+          id: 's1',
+          displayName: 's1',
+          cwd: '/p1',
+          lastActiveRelative: '2026-01-01T00:00:00Z',
+          lastTimestamp: '2026-01-01T00:00:00Z',
+        },
+      ],
+    };
+    const renderInstance = {
+      unmount: vi.fn(),
+      rerender: vi.fn(),
+    };
+    const deps = makeDeps({
+      render: vi.fn(() => renderInstance),
+      runDiscovery: vi.fn(
+        async (_root: string, onMeta: (m: SessionMeta) => void) => {
+          onMeta({
+            sessionId: 's1',
+            cwd: '/p1',
+            firstUserMessage: 'hello',
+            lastPrompt: null,
+            lastTimestamp: '2026-01-01T00:00:00Z',
+            sizeBytes: 0,
+            lineCount: 1,
+          });
+        },
+      ),
+      groupSessions: vi.fn(() => [discoveredProject]),
+    });
+
+    await bootstrap(deps);
+
+    const initialElement = deps.render.mock.calls[0]![0] as {
+      props: { projects: Project[] };
+    };
+    const rerenderedElement = renderInstance.rerender.mock.calls[0]![0] as {
+      props: { projects: Project[] };
+    };
+    expect(renderInstance.rerender).toHaveBeenCalledTimes(1);
+    expect(rerenderedElement.props.projects).toEqual([discoveredProject]);
+    expect(rerenderedElement.props.projects).not.toBe(
+      initialElement.props.projects,
+    );
+    expect(initialElement.props.projects).toEqual([]);
   });
 
   it('fires groupSessions via the runDiscovery onMeta callback', async () => {

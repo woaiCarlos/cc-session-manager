@@ -1,6 +1,6 @@
 // 注意：shebang 由 tsup banner (tsup.config.ts) 在 bundle 后注入；源文件不重复声明
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import React from 'react';
+import React, { type ReactElement } from 'react';
 import { render } from 'ink';
 import { App } from './tui/App.js';
 import { loadState } from './state/store.js';
@@ -90,8 +90,22 @@ export async function bootstrap(
   const root = appState.sessionRoot ?? detected;
 
   // 临时路径，无可用根则返回
-  const projects: Project[] = [];
+  let projects: Project[] = [];
   const seenMetas: SessionMeta[] = [];
+  let renderInstance: ReturnType<BootstrapDeps['render']> | null = null;
+
+  const createAppElement = (nextProjects: Project[]): ReactElement =>
+    React.createElement(App, {
+      bootstrapState: appState,
+      projects: nextProjects,
+      onSession: (cb: (meta: SessionMeta) => void) => {
+        // 在 onMeta 内部已经处理；这里 hook 仅用于记录通知
+        void cb;
+      },
+      onScanComplete: () => {
+        /* 占位 */
+      },
+    });
 
   const onMeta = (meta: SessionMeta): void => {
     seenMetas.push(meta);
@@ -102,28 +116,20 @@ export async function bootstrap(
       const bt = b.sessions[0]?.lastTimestamp ?? '';
       return bt.localeCompare(at);
     });
-    Object.assign(projects, grouped);
+    const nextProjects: Project[] = [];
+    nextProjects.push(...grouped);
+    projects = nextProjects;
+    renderInstance?.rerender(createAppElement(projects));
   };
+
+  renderInstance = _render(createAppElement(projects));
+  const { unmount } = renderInstance;
 
   // 启动扫描（不 await）—— UI 抢先渲染
   void (async (): Promise<void> => {
     if (!root) return;
     await _runDiscovery(root, onMeta);
   })();
-
-  const { unmount } = _render(
-    React.createElement(App, {
-      bootstrapState: appState,
-      projects,
-      onSession: (cb: (meta: SessionMeta) => void) => {
-        // 在 onMeta 内部已经处理；这里 hook 仅用于记录通知
-        void cb;
-      },
-      onScanComplete: () => {
-        /* 占位 */
-      },
-    }),
-  );
 
   process.on('SIGINT', () => {
     unmount();

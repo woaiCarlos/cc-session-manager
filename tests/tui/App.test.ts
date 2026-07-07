@@ -298,6 +298,29 @@ describe('App reducer — search flow sequence', () => {
 // SCAN_COMPLETE / SESSION_DISCOVERED / NOTICE — 扫描生命周期
 // ---------------------------------------------------------------------------
 
+describe('App reducer — SET_PROJECTS', () => {
+  it('replaces projects from an immutable update without resetting UI-only state', () => {
+    const originalProjects: Project[] = [makeProject({ key: '/old' })];
+    const nextProjects: Project[] = [makeProject({ key: '/new' })];
+    const seed = reducer(
+      {
+        ...baseState(),
+        projects: originalProjects,
+        selectedProjectKey: '/old',
+        focusedPane: 'sessions',
+        searchQuery: 'needle',
+      },
+      { type: 'SET_PROJECTS', projects: nextProjects },
+    );
+
+    expect(seed.projects).toBe(nextProjects);
+    expect(seed.projects).not.toBe(originalProjects);
+    expect(seed.selectedProjectKey).toBe('/old');
+    expect(seed.focusedPane).toBe('sessions');
+    expect(seed.searchQuery).toBe('needle');
+  });
+});
+
 describe('App reducer — SCAN_COMPLETE', () => {
   it('transitions scanStatus from scanning to complete', () => {
     const boot = reducer(baseState(), {
@@ -341,6 +364,7 @@ describe('App reducer — exhaustiveness', () => {
     const allActions: Action[] = [
       { type: 'BOOTSTRAP', state: DEFAULT_STATE, projects: [] },
       { type: 'SESSION_DISCOVERED', meta: makeMeta() },
+      { type: 'SET_PROJECTS', projects: [] },
       { type: 'SET_TERMINAL', terminal: 'warp' },
       { type: 'SET_SEARCH', q: 'x' },
       { type: 'OPEN_MODAL', modal: 'help' },

@@ -35,6 +35,7 @@ import { release as releaseLock } from '../state/lock.js';
 export type Action =
   | { type: 'BOOTSTRAP'; state: AppState; projects: Project[] }
   | { type: 'SESSION_DISCOVERED'; meta: SessionMeta }
+  | { type: 'SET_PROJECTS'; projects: Project[] }
   | { type: 'SET_TERMINAL'; terminal: TerminalChoice }
   | { type: 'SET_SEARCH'; q: string }
   | { type: 'OPEN_MODAL'; modal: ModalKind; ctx?: ModalContext }
@@ -108,9 +109,12 @@ export function reducer(state: UiState, action: Action): UiState {
       };
     case 'SESSION_DISCOVERED':
       // 设计选择：发现新 session 不在 reducer 内追加；
-      // App 内 effect 调 groupSessions 整体重建 projects。
-      // 此处返回同一引用即可，避免无谓 re-render。
+      // App 外围按当前 SessionMeta 集合整体重建 projects，再通过 props
+      // 变更触发 SET_PROJECTS 替换引用。
       return state;
+    case 'SET_PROJECTS':
+      if (state.projects === action.projects) return state;
+      return { ...state, projects: action.projects };
     case 'SET_TERMINAL':
       return { ...state, terminal: action.terminal };
     case 'SET_SEARCH':
@@ -179,6 +183,10 @@ export const App: React.FC<AppProps> = ({
     onScanComplete(() => dispatch({ type: 'SCAN_COMPLETE' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    dispatch({ type: 'SET_PROJECTS', projects });
+  }, [projects]);
 
   // Tab / 方向键 / Enter / Esc 由 useKeybindings 处理（onTab/箭头等副作用
   // 这里仍是 no-op，真正派发只在 useKeybindings 内部的 dispatch——避免与
