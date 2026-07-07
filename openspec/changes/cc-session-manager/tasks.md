@@ -31,7 +31,7 @@
 - [x] 4.1 实现 `src/grouping/group.ts`，接受 `SessionMeta[]` 与 `AppState`，返回 `Project[]`（每个含 `key`、`displayName`、`sessions[]`）
 - [x] 4.2 应用显示名优先级：用户别名 → 首条 user 消息截断 → cwd basename
 - [x] 4.3 每个项目内 session 按 `lastTimestamp` 倒序排列
-- [ ] 4.4 将 state 中的 `manualProjects` 合并进项目列表，区分 `manual: true` 与自动派生
+- [x] 4.4 将 state 中的 `manualProjects` 合并进项目列表，区分 `manual: true` 与自动派生
 - [ ] 4.5 应用 state 中的 `hiddenProjects` 过滤
 - [ ] 4.6 项目排序：手动项目优先，再按最近 session 时间戳倒序
 
