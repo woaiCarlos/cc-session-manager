@@ -44,7 +44,7 @@ export type Action =
   | { type: 'SELECT_SESSION'; id: string | null }
   | { type: 'FOCUS_PANE'; pane: 'projects' | 'sessions' }
   | { type: 'TOGGLE_FOCUS' }
-  | { type: 'NOTICE'; kind: string; payload?: unknown }
+  | { type: 'NOTICE'; kind: string; payload?: unknown; message?: string }
   | { type: 'SCAN_COMPLETE' };
 
 // ---------------------------------------------------------------------------
@@ -174,9 +174,16 @@ export function reducer(state: UiState, action: Action): UiState {
     case 'SCAN_COMPLETE':
       return { ...state, scanStatus: 'complete' };
     case 'NOTICE':
-      // TODO：后续可基于 kind 写入 lastAction。当前 pure no-op 以便走
-      // effect 路径（写入 notification banner），避免 reducer 副作用溢出。
-      return state;
+      // 写入 lastAction，让 status-bar / notice banner 显示。
+      // TODO：可加 timeout 自动清除。当前 next action 覆盖。
+      return {
+        ...state,
+        lastAction: {
+          kind: action.kind,
+          payload: action.payload ?? action.message,
+          at: Date.now(),
+        },
+      };
   }
 }
 
@@ -283,12 +290,13 @@ export const App: React.FC<AppProps> = ({
   }, []);
 
   // Enter 副作用：在 session 上恢复；terminal 取自当前 state，故随 terminal 变化
-  // 重建 callback（settings 改终端后立即生效）。错误提示（TerminalNotInstalled 等）
-  // 由后续 status-bar task 接入；此处 catch 吞掉避免未处理 rejection。
+  // 重建 callback（settings 改终端后立即生效）。失败时 dispatch NOTICE 让
+  // status-bar 显示错误（之前 catch 静默吞掉，用户看不到反馈）。
   const onResumeSession = useCallback(
     (session: Session) => {
-      void resumeSession(session, state.terminal).catch(() => {
-        /* 终端派发失败的 UI 提示由后续 task 接入 */
+      void resumeSession(session, state.terminal).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        dispatch({ type: 'NOTICE', kind: 'error', message: `Resume failed: ${msg}` });
       });
     },
     [state.terminal]

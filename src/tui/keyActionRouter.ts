@@ -138,6 +138,12 @@ export function routeKey(
     return; // quit 后续不应再继续派发其它 action
   }
 
+  // Esc：模态下关模态；main view 退回 projects pane（不退出）
+  if (key.escape) {
+    dispatch({ type: 'FOCUS_PANE', pane: 'projects' });
+    return;
+  }
+
   if (input === 'r') {
     dispatch({ type: 'OPEN_MODAL', modal: 'rename' });
   } else if (input === 'n') {
