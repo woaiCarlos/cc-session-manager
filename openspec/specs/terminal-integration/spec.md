@@ -45,23 +45,15 @@ The system SHALL open Warp and attempt to inject the command via `osascript` key
 - **THEN** Warp opens and the system attempts keystroke injection; if the user reports it fails, the system falls back to copying the command to the clipboard and notifying the user
 
 ### Requirement: Open Action Result Notification
-
-The system SHALL always keep the TUI running in the original terminal after dispatching an open action, so the user can continue browsing without losing state. When the chosen terminal backend is `current`, after the spawned child exits the system SHALL re-read the resumed session's JSONL file and update its display name, size, and last-active timestamp in the TUI.
+The system SHALL always keep the TUI running in the original terminal after dispatching an open action, so the user can continue browsing without losing state. After a `current`-backend session exits, the TUI SHALL restore the full project / session list (not an empty state).
 
 #### Scenario: TUI remains interactive after open
-
-- **WHEN** the user resumes a session
+- **WHEN** the user resumes a session using any terminal backend
 - **THEN** the original TUI stays interactive in the current terminal; the new terminal window is created separately
 
-#### Scenario: current backend exit refreshes session metadata
-
-- **WHEN** the user resumes a session via the `current` backend and the `claude` child exits
-- **THEN** ccsm re-reads that session's JSONL file and any change to its `custom-title`, `lastPrompt`, `sizeBytes`, or `lastTimestamp` is reflected in the sessions list without requiring a manual restart
-
-#### Scenario: Other backends do not trigger rescan
-
-- **WHEN** the user resumes a session via a non-`current` backend (Terminal.app / iTerm2 / Warp)
-- **THEN** no rescan is triggered for the ccsm TUI; the existing snapshot remains until next launch
+#### Scenario: 'current' backend restores project list after session exits
+- **WHEN** the user resumes a session using the `current` backend, `claude` runs and then exits
+- **THEN** Ink re-mounts and the project pane displays all projects (with their session counts) exactly as they were before the resume — no blank / empty state
 
 ### Requirement: Sessions Pane
 

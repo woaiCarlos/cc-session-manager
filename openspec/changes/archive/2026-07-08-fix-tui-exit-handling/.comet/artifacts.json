@@ -1,0 +1,7 @@
+{
+  "openspec_proposal": "openspec/changes/fix-tui-exit-handling/proposal.md",
+  "openspec_design": "openspec/changes/fix-tui-exit-handling/design.md",
+  "openspec_tasks": "openspec/changes/fix-tui-exit-handling/tasks.md",
+  "openspec_delta_spec": "openspec/changes/fix-tui-exit-handling/specs/terminal-integration/spec.md",
+  "archive_directory": "openspec/changes/archive/2026-07-08-fix-tui-exit-handling"
+}
