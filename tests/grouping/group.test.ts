@@ -1,0 +1,118 @@
+import { describe, it, expect } from 'vitest';
+import path from 'node:path';
+import { groupSessions } from '../../src/grouping/group.js';
+import { DEFAULT_STATE, type SessionMeta } from '../../src/state/types.js';
+
+const s = (overrides: Partial<SessionMeta>): SessionMeta => ({
+  sessionId: 'sid',
+  cwd: '/p1',
+  firstUserMessage: null,
+  lastPrompt: null,
+  lastTimestamp: '2026-01-01T00:00:00Z',
+  sizeBytes: 1,
+  lineCount: 1,
+  ...overrides,
+});
+
+describe('groupSessions', () => {
+  it('groups sessions by shared cwd', () => {
+    const result = groupSessions(
+      [s({ sessionId: 'a', cwd: '/p1' }), s({ sessionId: 'b', cwd: '/p1' }), s({ sessionId: 'c', cwd: '/p2' })],
+      DEFAULT_STATE
+    );
+    expect(result.map((p) => p.cwd).sort()).toEqual(['/p1', '/p2']);
+    const p1 = result.find((p) => p.cwd === '/p1')!;
+    expect(p1.sessions.map((x) => x.id).sort()).toEqual(['a', 'b']);
+  });
+
+  it('uses customTitle over lastPrompt and cwd basename (Bug 4d)', () => {
+    // Bug 4d：不再读 ccsm 自维护的 state.sessionAliases；显示名主源
+    // 变成 meta.customTitle（Claude Code 的 JSONL custom-title 事件）。
+    const result = groupSessions(
+      [
+        s({
+          sessionId: 'a',
+          cwd: '/p1',
+          firstUserMessage: 'Fix login bug',
+          lastPrompt: 'Latest prompt text',
+          customTitle: '飞牛内网穿透',
+        }),
+      ],
+      DEFAULT_STATE
+    );
+    const p = result[0];
+    expect(p.displayName).toBe(path.basename('/p1'));
+    expect(p.sessions[0].displayName).toBe('飞牛内网穿透');
+  });
+
+  it('sorts sessions within a project by lastTimestamp desc', () => {
+    const result = groupSessions(
+      [
+        s({ sessionId: 'old', cwd: '/p1', lastTimestamp: '2026-01-01T00:00:00Z' }),
+        s({ sessionId: 'newest', cwd: '/p1', lastTimestamp: '2026-03-01T00:00:00Z' }),
+        s({ sessionId: 'mid', cwd: '/p1', lastTimestamp: '2026-02-01T00:00:00Z' }),
+      ],
+      DEFAULT_STATE
+    );
+    expect(result[0].sessions.map((s) => s.id)).toEqual(['newest', 'mid', 'old']);
+  });
+
+  it('merges manual projects even when no sessions exist', () => {
+    const result = groupSessions(
+      [],
+      { ...DEFAULT_STATE, manualProjects: [{ path: '/empty', addedAt: '2026-01-01T00:00:00Z' }] }
+    );
+    const m = result.find((p) => p.cwd === path.resolve('/empty'));
+    expect(m).toBeDefined();
+    expect(m!.manual).toBe(true);
+    expect(m!.sessions).toEqual([]);
+  });
+
+  it('flags auto-derived project as manual when listed in manualProjects', () => {
+    const result = groupSessions(
+      [s({ sessionId: 'a', cwd: '/p1' })],
+      { ...DEFAULT_STATE, manualProjects: [{ path: '/p1', addedAt: '2026-01-01T00:00:00Z' }] }
+    );
+    const p = result.find((x) => x.cwd === path.resolve('/p1'))!;
+    expect(p.manual).toBe(true);
+    expect(p.sessions.map((s) => s.id)).toEqual(['a']);
+  });
+
+  it('filters out hidden projects', () => {
+    const result = groupSessions(
+      [s({ sessionId: 'a', cwd: '/p1' })],
+      { ...DEFAULT_STATE, hiddenProjects: [path.resolve('/p1')] }
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('orders manual projects first, then auto by most recent session', () => {
+    const result = groupSessions(
+      [
+        s({ sessionId: 'a', cwd: '/auto', lastTimestamp: '2026-05-01T00:00:00Z' }),
+        s({ sessionId: 'b', cwd: '/auto2', lastTimestamp: '2026-04-01T00:00:00Z' }),
+      ],
+      {
+        ...DEFAULT_STATE,
+        manualProjects: [{ path: '/manual', addedAt: '2026-01-01T00:00:00Z' }],
+      }
+    );
+    expect(result[0].cwd).toBe(path.resolve('/manual'));
+    expect(result[1].cwd).toBe(path.resolve('/auto'));
+    expect(result[2].cwd).toBe(path.resolve('/auto2'));
+  });
+
+  it('propagates sizeBytes from SessionMeta into Session (Bug B)', () => {
+    const result = groupSessions(
+      [
+        s({ sessionId: 'a', cwd: '/p1', sizeBytes: 4096 }),
+        s({ sessionId: 'b', cwd: '/p1', sizeBytes: 2 * 1024 * 1024 }),
+      ],
+      DEFAULT_STATE
+    );
+    const p1 = result.find((p) => p.cwd === '/p1')!;
+    const byId = Object.fromEntries(p1.sessions.map((sess) => [sess.id, sess]));
+    expect(byId.a!.sizeBytes).toBe(4096);
+    expect(byId.b!.sizeBytes).toBe(2 * 1024 * 1024);
+  });
+});

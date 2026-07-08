@@ -1,0 +1,7 @@
+{"type":"user","sessionId":"fixture-corrupt","cwd":"/tmp/legacy","message":{"content":"Kick off the migration"},"timestamp":"2026-04-10T12:00:00Z"}
+{this-is-not-json: and should be skipped}
+{"timestamp": "2026-04-10T12:00:30Z", broken json without closing brace
+not-json-at-all
+{"type":"assistant","sessionId":"fixture-corrupt","message":{"content":"Acknowledged"},"timestamp":"2026-04-10T12:01:00Z"}
+[oops, an array where an object was expected]
+{"type":"last-prompt","sessionId":"fixture-corrupt","lastPrompt":"Kick off the migration","timestamp":"2026-04-10T12:01:30Z"}

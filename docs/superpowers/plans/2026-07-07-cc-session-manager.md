@@ -2,6 +2,7 @@
 change: cc-session-manager
 design-doc: docs/superpowers/specs/2026-07-07-cc-session-manager-design.md
 base-ref: not-yet-init
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # cc-session-manager Implementation Plan
@@ -40,6 +41,7 @@ base-ref: not-yet-init
 | C14 | **AppleScript 转义**：所有 osascript 调用必须用 `execFile` + 参数数组（非字符串拼接），防止 shell 注入 |
 | C15 | **代码组织**：单一职责，一个文件一个清晰边界；`discovery/*` 不依赖 `tui/*`；`terminal/*` 不依赖 `state/*`；`actions/*` 是 TUI ↔ 底层的胶水 |
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 ## 任务分组与依赖图
@@ -59,6 +61,7 @@ base-ref: not-yet-init
 
 总计 71 个任务。任务编号与 OpenSpec `tasks.md` 完全一致。
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 1 组：项目脚手架（Project Scaffolding）
@@ -72,7 +75,7 @@ base-ref: not-yet-init
 **Interfaces:**
 - Produces: 工程根目录可被 `npm install` 识别；暴露 `ccsm` 可执行入口
 
-- [ ] **Step 1：在工程根目录初始化 git 仓库**
+- [x] **Step 1：在工程根目录初始化 git 仓库**
 
 ```bash
 cd /Users/carlos/workspace/cc-session-manager  # 若目录尚未存在则创建
@@ -81,7 +84,7 @@ git config user.email "dev@example.com"
 git config user.name "Developer"
 ```
 
-- [ ] **Step 2：写入 `package.json`**
+- [x] **Step 2：写入 `package.json`**
 
 `package.json` 内容：
 
@@ -109,7 +112,7 @@ git config user.name "Developer"
 }
 ```
 
-- [ ] **Step 3：写入 `.gitignore`**
+- [x] **Step 3：写入 `.gitignore`**
 
 `.gitignore` 内容：
 
@@ -124,7 +127,7 @@ coverage/
 .vitest-cache/
 ```
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add package.json .gitignore
@@ -139,19 +142,19 @@ git commit -m "chore(scaffold): initialize package.json and .gitignore"
 **Interfaces:**
 - Produces: `node_modules` 安装完成；`npx vitest` `npx tsup` 可用
 
-- [ ] **Step 1：安装运行时依赖**
+- [x] **Step 1：安装运行时依赖**
 
 ```bash
 npm install --save ink@^5 @inkjs/ui@^2 ink-text-input@^6 chalk@^5
 ```
 
-- [ ] **Step 2：安装开发依赖**
+- [x] **Step 2：安装开发依赖**
 
 ```bash
 npm install --save-dev typescript@^5 tsx@^4 @types/node@^22 tsup@^8 vitest@^2 @vitest/ui@^2
 ```
 
-- [ ] **Step 3：验证依赖**
+- [x] **Step 3：验证依赖**
 
 ```bash
 npm ls --depth=0
@@ -159,7 +162,7 @@ npm ls --depth=0
 
 预期输出：列出 `ink`、`@inkjs/ui`、`ink-text-input`、`chalk`、以及 `typescript`、`tsx`、`@types/node`、`tsup`、`vitest`、`@vitest/ui`，无 `UNMET DEPENDENCY` 警告。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add package.json package-lock.json
@@ -175,7 +178,7 @@ git commit -m "chore(deps): add ink, typescript, tsup, vitest"
 **Interfaces:**
 - Produces: TypeScript 编译配置；`tsx` 与 `tsup` 使用同一基线
 
-- [ ] **Step 1：写入 `tsconfig.json`**
+- [x] **Step 1：写入 `tsconfig.json`**
 
 ```json
 {
@@ -203,7 +206,7 @@ git commit -m "chore(deps): add ink, typescript, tsup, vitest"
 }
 ```
 
-- [ ] **Step 2：写入 `tsconfig.build.json`**
+- [x] **Step 2：写入 `tsconfig.build.json`**
 
 ```json
 {
@@ -215,7 +218,7 @@ git commit -m "chore(deps): add ink, typescript, tsup, vitest"
 }
 ```
 
-- [ ] **Step 3：验证编译**
+- [x] **Step 3：验证编译**
 
 ```bash
 mkdir -p src && echo 'export const x: number = 1;' > src/_probe.ts
@@ -225,7 +228,7 @@ rm -rf src/_probe.ts
 
 预期：`tsc` 退出码 0。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add tsconfig.json tsconfig.build.json
@@ -240,7 +243,7 @@ git commit -m "chore(tsconfig): strict ESM TypeScript with NodeNext"
 **Interfaces:**
 - Produces: `npm run build` 命令可生成 `dist/cli.js`（带 shebang）
 
-- [ ] **Step 1：写入 `tsup.config.ts`**
+- [x] **Step 1：写入 `tsup.config.ts`**
 
 ```ts
 import { defineConfig } from 'tsup';
@@ -262,7 +265,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2：在 `package.json` 中补充 `scripts`**
+- [x] **Step 2：在 `package.json` 中补充 `scripts`**
 
 编辑 `package.json` 的 `scripts` 字段（合并已有内容）：
 
@@ -278,7 +281,7 @@ export default defineConfig({
 }
 ```
 
-- [ ] **Step 3：校验脚本存在**
+- [x] **Step 3：校验脚本存在**
 
 ```bash
 node -e "const p=require('./package.json'); console.log(p.scripts.build)"
@@ -286,7 +289,7 @@ node -e "const p=require('./package.json'); console.log(p.scripts.build)"
 
 预期输出：`tsup`。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add tsup.config.ts package.json
@@ -301,7 +304,7 @@ git commit -m "chore(build): configure tsup to bundle cli.tsx as ESM"
 **Interfaces:**
 - Produces: 运行 `tsx src/cli.tsx` 后 Ink 渲染；`npm run build` 产物第一行是 shebang
 
-- [ ] **Step 1：写入 `src/cli.tsx`**
+- [x] **Step 1：写入 `src/cli.tsx`**
 
 ```tsx
 #!/usr/bin/env node
@@ -319,7 +322,7 @@ render(React.createElement(App));
 
 注意：保留首行 `#!/usr/bin/env node` 以便 tsup banner 不会重复插入。
 
-- [ ] **Step 2：直接执行 tsx**
+- [x] **Step 2：直接执行 tsx**
 
 ```bash
 npx tsx src/cli.tsx </dev/null 2>&1 | head -5
@@ -327,7 +330,7 @@ npx tsx src/cli.tsx </dev/null 2>&1 | head -5
 
 预期输出（任一终端中可见）：类似 `ccsm bootstrapping…`。
 
-- [ ] **Step 3：build 并验证 shebang**
+- [x] **Step 3：build 并验证 shebang**
 
 ```bash
 npm run build
@@ -336,7 +339,7 @@ head -1 dist/cli.js
 
 预期输出：`#!/usr/bin/env node`。
 
-- [ ] **Step 4：执行 dist 输出（无副作用）**
+- [x] **Step 4：执行 dist 输出（无副作用）**
 
 ```bash
 chmod +x dist/cli.js
@@ -345,7 +348,7 @@ timeout 1 ./dist/cli.js </dev/null || true
 
 预期：进程 1 秒内退出（占位 App 没接 useApp() 退出钩子，这里仅验证可启动）。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/cli.tsx
@@ -360,7 +363,7 @@ git commit -m "feat(cli): bootstrapping entry with Ink render"
 **Interfaces:**
 - Produces: 用户可参照的安装、键位、故障排查文档
 
-- [ ] **Step 1：写入 `README.md`**
+- [x] **Step 1：写入 `README.md`**
 
 ```markdown
 # cc-session-manager
@@ -419,7 +422,7 @@ Delete `~/.config/cc-manager/state.json` to reset.
 MIT
 ```
 
-- [ ] **Step 2：提交**
+- [x] **Step 2：提交**
 
 ```bash
 git add README.md
@@ -434,7 +437,7 @@ git commit -m "docs(readme): install, keybindings, supported terminals, troubles
 **Interfaces:**
 - Produces: `.DS_Store`、`.idea/`、`.vscode/` 等不进入版本控制
 
-- [ ] **Step 1：追加条目**
+- [x] **Step 1：追加条目**
 
 编辑 `.gitignore`：
 
@@ -454,13 +457,14 @@ coverage/
 .tmp/
 ```
 
-- [ ] **Step 2：提交**
+- [x] **Step 2：提交**
 
 ```bash
 git add .gitignore
 git commit -m "chore(gitignore): add IDE and editor temp files"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 2 组：状态持久化（State Persistence）
@@ -546,11 +550,11 @@ export interface ScanProgress {
 }
 ```
 
-- [ ] **Step 1：写入类型文件**
+- [x] **Step 1：写入类型文件**
 
 将上面的代码完整写入 `src/state/types.ts`。
 
-- [ ] **Step 2：编译验证**
+- [x] **Step 2：编译验证**
 
 ```bash
 npx tsc --noEmit
@@ -558,7 +562,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add src/state/types.ts
@@ -574,7 +578,7 @@ git commit -m "feat(state): define AppState, SessionMeta, Project, Modal types"
 **Interfaces:**
 - Produces: `loadState(): Promise<AppState>`、`saveState(state): Promise<void>`、`CONFIG_DIR`、`STATE_PATH` 常量
 
-- [ ] **Step 1：先写红测**
+- [x] **Step 1：先写红测**
 
 `tests/state/store.test.ts`：
 
@@ -619,7 +623,7 @@ describe('store', () => {
 });
 ```
 
-- [ ] **Step 2：跑测，确认 RED**
+- [x] **Step 2：跑测，确认 RED**
 
 ```bash
 npx vitest run tests/state/store.test.ts
@@ -627,7 +631,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：FAIL（store.ts 不存在）。
 
-- [ ] **Step 3：实现 `src/state/store.ts`**
+- [x] **Step 3：实现 `src/state/store.ts`**
 
 ```ts
 import { promises as fs } from 'node:fs';
@@ -682,7 +686,7 @@ export async function saveState(state: AppState): Promise<void> {
 }
 ```
 
-- [ ] **Step 4：跑测，确认 GREEN**
+- [x] **Step 4：跑测，确认 GREEN**
 
 ```bash
 npx vitest run tests/state/store.test.ts
@@ -690,7 +694,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：2 个用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/state/store.ts tests/state/store.test.ts
@@ -702,7 +706,7 @@ git commit -m "feat(state): atomic JSON store with corrupt-state recovery"
 **Files:**
 - Modify: `tests/state/store.test.ts`
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 编辑 `tests/state/store.test.ts`，新增 `it('backs up corrupt JSON')` 用例：
 
@@ -722,7 +726,7 @@ it('backs up corrupt JSON and returns defaults', async () => {
 });
 ```
 
-- [ ] **Step 2：跑测**
+- [x] **Step 2：跑测**
 
 ```bash
 npx vitest run tests/state/store.test.ts
@@ -730,7 +734,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：3 用例全部 PASS（store.ts 在 Task 2.2 已含损坏恢复逻辑）。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add tests/state/store.test.ts
@@ -742,7 +746,7 @@ git commit -m "test(state): corrupt JSON triggers backup and defaults"
 **Files:**
 - Modify: `tests/state/store.test.ts`
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 ```ts
 it('merges defaults when fields are missing', async () => {
@@ -757,7 +761,7 @@ it('merges defaults when fields are missing', async () => {
 });
 ```
 
-- [ ] **Step 2：跑测**
+- [x] **Step 2：跑测**
 
 ```bash
 npx vitest run tests/state/store.test.ts
@@ -765,7 +769,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：4 用例 PASS（合并逻辑已在 2.2 中通过 `{ ...DEFAULT_STATE, ...parsed }` 实现）。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add tests/state/store.test.ts
@@ -781,7 +785,7 @@ git commit -m "test(state): merge defaults when fields missing"
 **Interfaces:**
 - Produces: `getSessionRoot(detect: () => Promise<string|null>): Promise<string|null>`，当 `state.sessionRoot` 为 null 时回退到探测函数
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 ```ts
 import { getSessionRoot } from '../../src/state/store.js';
@@ -805,7 +809,7 @@ it('falls back when detector returns null', async () => {
 });
 ```
 
-- [ ] **Step 2：跑测，确认 RED**
+- [x] **Step 2：跑测，确认 RED**
 
 ```bash
 npx vitest run tests/state/store.test.ts
@@ -813,7 +817,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：`getSessionRoot` 缺失 → FAIL。
 
-- [ ] **Step 3：在 `src/state/store.ts` 追加函数**
+- [x] **Step 3：在 `src/state/store.ts` 追加函数**
 
 ```ts
 export async function getSessionRoot(
@@ -824,7 +828,7 @@ export async function getSessionRoot(
 }
 ```
 
-- [ ] **Step 4：跑测，确认 GREEN**
+- [x] **Step 4：跑测，确认 GREEN**
 
 ```bash
 npx vitest run tests/state/store.test.ts
@@ -832,7 +836,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：7 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/state/store.ts tests/state/store.test.ts
@@ -848,7 +852,7 @@ git commit -m "feat(state): getSessionRoot helper with override precedence"
 **Interfaces:**
 - Produces: `getAlias('session'|'project', key): Promise<string|undefined>`、`setAlias('session'|'project', key, value): Promise<void>`
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 ```ts
 it('stores and returns session alias', async () => {
@@ -865,7 +869,7 @@ it('stores project alias keyed by group key', async () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/state/store.test.ts
@@ -873,7 +877,7 @@ npx vitest run tests/state/store.test.ts
 
 预期：FAIL（setAlias/getAlias 未定义）。
 
-- [ ] **Step 3：追加实现**
+- [x] **Step 3：追加实现**
 
 在 `src/state/store.ts` 末尾追加：
 
@@ -901,7 +905,7 @@ export async function setAlias(
 }
 ```
 
-- [ ] **Step 4：跑测，GREEN**
+- [x] **Step 4：跑测，GREEN**
 
 ```bash
 npx vitest run tests/state/store.test.ts
@@ -909,13 +913,14 @@ npx vitest run tests/state/store.test.ts
 
 预期：9 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/state/store.ts tests/state/store.test.ts
 git commit -m "feat(state): getAlias/setAlias for session and project keys"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 3 组：Session 发现（Session Discovery）
@@ -929,7 +934,7 @@ git commit -m "feat(state): getAlias/setAlias for session and project keys"
 **Interfaces:**
 - Produces: `detectRoot(): Promise<string|null>`，按 `CLAUDE_CONFIG_DIR` → `$HOME/.claude/projects/` → `$HOME/Library/Application Support/Claude/projects/` 顺序
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 `tests/discovery/detectRoot.test.ts`：
 
@@ -973,7 +978,7 @@ describe('detectRoot', () => {
 
 让 `detectRoot` 接收一个可选的 env object 以便测试可注入。
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/discovery/detectRoot.test.ts
@@ -981,7 +986,7 @@ npx vitest run tests/discovery/detectRoot.test.ts
 
 预期：FAIL（detectRoot.ts 未实现）。
 
-- [ ] **Step 3：实现 `src/discovery/detectRoot.ts`**
+- [x] **Step 3：实现 `src/discovery/detectRoot.ts`**
 
 ```ts
 import { promises as fs } from 'node:fs';
@@ -1018,7 +1023,7 @@ export async function detectRoot(env: Env = process.env): Promise<string | null>
 }
 ```
 
-- [ ] **Step 4：跑测，GREEN**
+- [x] **Step 4：跑测，GREEN**
 
 ```bash
 npx vitest run tests/discovery/detectRoot.test.ts
@@ -1026,7 +1031,7 @@ npx vitest run tests/discovery/detectRoot.test.ts
 
 预期：3 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/discovery/detectRoot.ts tests/discovery/detectRoot.test.ts
@@ -1042,7 +1047,7 @@ git commit -m "feat(discovery): detectRoot with override precedence"
 **Interfaces:**
 - Produces: `listJsonlFiles(rootPath): Promise<string[]>`，递归列出所有 `.jsonl`
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -1074,7 +1079,7 @@ it('returns empty array when nothing exists', async () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/discovery/scan.test.ts
@@ -1082,7 +1087,7 @@ npx vitest run tests/discovery/scan.test.ts
 
 预期：FAIL。
 
-- [ ] **Step 3：实现 `src/discovery/scan.ts`**
+- [x] **Step 3：实现 `src/discovery/scan.ts`**
 
 ```ts
 import { promises as fs } from 'node:fs';
@@ -1111,7 +1116,7 @@ export async function listJsonlFiles(rootPath: string): Promise<string[]> {
 }
 ```
 
-- [ ] **Step 4：跑测，GREEN**
+- [x] **Step 4：跑测，GREEN**
 
 ```bash
 npx vitest run tests/discovery/scan.test.ts
@@ -1119,7 +1124,7 @@ npx vitest run tests/discovery/scan.test.ts
 
 预期：2 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/discovery/scan.ts tests/discovery/scan.test.ts
@@ -1135,7 +1140,7 @@ git commit -m "feat(discovery): recursive .jsonl listing"
 **Interfaces:**
 - Produces: `parseJsonlFile(filePath): Promise<SessionMeta|null>`，流式 readline，每行 try/catch
 
-- [ ] **Step 1：写红测（先用文本夹具，准备 fixtures）**
+- [x] **Step 1：写红测（先用文本夹具，准备 fixtures）**
 
 先建立 fixtures 目录脚本：
 
@@ -1210,7 +1215,7 @@ it('returns the most recent last-prompt when multiple exist', async () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/discovery/parse.test.ts
@@ -1218,7 +1223,7 @@ npx vitest run tests/discovery/parse.test.ts
 
 预期：FAIL。
 
-- [ ] **Step 3：实现 `src/discovery/parse.ts`**
+- [x] **Step 3：实现 `src/discovery/parse.ts`**
 
 ```ts
 import { promises as fs } from 'node:fs';
@@ -1298,7 +1303,7 @@ export async function parseJsonlFile(filePath: string): Promise<SessionMeta | nu
 }
 ```
 
-- [ ] **Step 4：跑测，GREEN**
+- [x] **Step 4：跑测，GREEN**
 
 ```bash
 npx vitest run tests/discovery/parse.test.ts
@@ -1306,7 +1311,7 @@ npx vitest run tests/discovery/parse.test.ts
 
 预期：4 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/discovery/parse.ts tests/discovery/parse.test.ts
@@ -1322,7 +1327,7 @@ git commit -m "feat(discovery): streaming JSONL parser with per-line fault toler
 **Interfaces:**
 - Produces: `runDiscovery(rootPath, onMeta: (meta: SessionMeta) => void): Promise<void>`，调用 `listJsonlFiles` → 并发 `parseJsonlFile`（限流 4）→ 回调
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -1346,7 +1351,7 @@ it('emits metadata for every valid session', async () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/discovery/index.test.ts
@@ -1354,7 +1359,7 @@ npx vitest run tests/discovery/index.test.ts
 
 预期：FAIL。
 
-- [ ] **Step 3：实现 `src/discovery/index.ts`**
+- [x] **Step 3：实现 `src/discovery/index.ts`**
 
 ```ts
 import os from 'node:os';
@@ -1390,7 +1395,7 @@ export async function runDiscovery(
 }
 ```
 
-- [ ] **Step 4：跑测，GREEN**
+- [x] **Step 4：跑测，GREEN**
 
 ```bash
 npx vitest run tests/discovery/index.test.ts
@@ -1398,7 +1403,7 @@ npx vitest run tests/discovery/index.test.ts
 
 预期：PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/discovery/index.ts tests/discovery/index.test.ts
@@ -1413,7 +1418,7 @@ git commit -m "feat(discovery): bounded-concurrency discovery coordinator"
 **Interfaces:**
 - Produces: `scanBackground(rootPath): AsyncGenerator<SessionMeta>`，UI 可 `for await` 流式获取
 
-- [ ] **Step 1：追加导出**
+- [x] **Step 1：追加导出**
 
 编辑 `src/discovery/index.ts`，在文件末尾追加：
 
@@ -1457,7 +1462,7 @@ export async function* scanBackground(rootPath: string): AsyncGenerator<SessionM
 }
 ```
 
-- [ ] **Step 2：手测集成**
+- [x] **Step 2：手测集成**
 
 ```bash
 mkdir -p /tmp/ccsm-bgtest
@@ -1468,7 +1473,7 @@ rm -rf /tmp/ccsm-bgtest
 
 预期输出：`x`。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add src/discovery/index.ts
@@ -1483,7 +1488,7 @@ git commit -m "feat(discovery): AsyncGenerator API for streaming scan results"
 **Interfaces:**
 - Produces: `npm run test` 可运行所有单元测试
 
-- [ ] **Step 1：写入 `vitest.config.ts`**
+- [x] **Step 1：写入 `vitest.config.ts`**
 
 ```ts
 import { defineConfig } from 'vitest/config';
@@ -1498,7 +1503,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2：跑全部现有测试**
+- [x] **Step 2：跑全部现有测试**
 
 ```bash
 npm run test
@@ -1506,13 +1511,14 @@ npm run test
 
 预期：所有 14+ 用例 PASS。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add vitest.config.ts
 git commit -m "test: configure vitest for node environment"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 4 组：项目分组（Project Grouping）
@@ -1526,7 +1532,7 @@ git commit -m "test: configure vitest for node environment"
 **Interfaces:**
 - Produces: `groupSessions(sessions, state): Project[]`，纯函数
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -1555,7 +1561,7 @@ it('groups sessions by shared cwd', () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/grouping/group.test.ts
@@ -1563,7 +1569,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：FAIL。
 
-- [ ] **Step 3：实现 `src/grouping/group.ts`**
+- [x] **Step 3：实现 `src/grouping/group.ts`**
 
 ```ts
 import path from 'node:path';
@@ -1602,11 +1608,11 @@ export function projectDisplayName(cwd: string, alias?: string): string {
 
 仅导出工具函数，让 Task 4.2 引入 `groupSessions` 主逻辑。
 
-- [ ] **Step 4：跑测，RED 依然**
+- [x] **Step 4：跑测，RED 依然**
 
 预期：因为 `groupSessions` 仍未导出，测试 FAIL。
 
-- [ ] **Step 5：提交（仅工具函数 + 先挂一个失败测试）**
+- [x] **Step 5：提交（仅工具函数 + 先挂一个失败测试）**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
@@ -1619,7 +1625,7 @@ git commit -m "feat(grouping): add display-name helpers (stripXmlTags, truncate)
 - Modify: `src/grouping/group.ts`
 - Modify: `tests/grouping/group.test.ts`
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 ```ts
 it('uses user alias over lastPrompt and cwd basename', () => {
@@ -1640,7 +1646,7 @@ it('uses user alias over lastPrompt and cwd basename', () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/grouping/group.test.ts
@@ -1648,7 +1654,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：FAIL（`groupSessions` 未导出）。
 
-- [ ] **Step 3：在 `src/grouping/group.ts` 追加 `groupSessions`**
+- [x] **Step 3：在 `src/grouping/group.ts` 追加 `groupSessions`**
 
 ```ts
 import { relativeTime } from '../util/relative-time.js'; // Task 5 / later; use defer
@@ -1697,7 +1703,7 @@ export function groupSessions(metas: SessionMeta[], state: AppState): Project[] 
 }
 ```
 
-- [ ] **Step 4：跑测，GREEN**
+- [x] **Step 4：跑测，GREEN**
 
 ```bash
 npx vitest run tests/grouping/group.test.ts
@@ -1705,7 +1711,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：2 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
@@ -1717,7 +1723,7 @@ git commit -m "feat(grouping): groupSessions by cwd with alias-first display nam
 **Files:**
 - Modify: `tests/grouping/group.test.ts`
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 ```ts
 it('sorts sessions within a project by lastTimestamp desc', () => {
@@ -1733,7 +1739,7 @@ it('sorts sessions within a project by lastTimestamp desc', () => {
 });
 ```
 
-- [ ] **Step 2：跑测**
+- [x] **Step 2：跑测**
 
 ```bash
 npx vitest run tests/grouping/group.test.ts
@@ -1741,7 +1747,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：PASS（实现已含排序）。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add tests/grouping/group.test.ts
@@ -1754,7 +1760,7 @@ git commit -m "test(grouping): sessions sorted by lastTimestamp desc"
 - Modify: `src/grouping/group.ts`
 - Modify: `tests/grouping/group.test.ts`
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 ```ts
 it('merges manual projects even when no sessions exist', () => {
@@ -1769,7 +1775,7 @@ it('merges manual projects even when no sessions exist', () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/grouping/group.test.ts
@@ -1777,7 +1783,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：FAIL。
 
-- [ ] **Step 3：编辑 `groupSessions`，在最后追加**
+- [x] **Step 3：编辑 `groupSessions`，在最后追加**
 
 ```ts
 for (const mp of state.manualProjects) {
@@ -1799,7 +1805,7 @@ for (const mp of state.manualProjects) {
 }
 ```
 
-- [ ] **Step 4：跑测，GREEN**
+- [x] **Step 4：跑测，GREEN**
 
 ```bash
 npx vitest run tests/grouping/group.test.ts
@@ -1807,7 +1813,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
@@ -1820,7 +1826,7 @@ git commit -m "feat(grouping): merge manualProjects with manual flag"
 - Modify: `src/grouping/group.ts`
 - Modify: `tests/grouping/group.test.ts`
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 ```ts
 it('filters out hidden projects', () => {
@@ -1832,13 +1838,13 @@ it('filters out hidden projects', () => {
 });
 ```
 
-- [ ] **Step 2：在 `groupSessions` 末尾追加过滤**
+- [x] **Step 2：在 `groupSessions` 末尾追加过滤**
 
 ```ts
 return projects.filter((p) => !p.hidden);
 ```
 
-- [ ] **Step 3：跑测，GREEN**
+- [x] **Step 3：跑测，GREEN**
 
 ```bash
 npx vitest run tests/grouping/group.test.ts
@@ -1846,7 +1852,7 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：PASS。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
@@ -1859,7 +1865,7 @@ git commit -m "feat(grouping): filter hiddenProjects from final list"
 - Modify: `src/grouping/group.ts`
 - Modify: `tests/grouping/group.test.ts`
 
-- [ ] **Step 1：追加红测**
+- [x] **Step 1：追加红测**
 
 ```ts
 it('orders manual projects first, then auto by most recent session', () => {
@@ -1879,7 +1885,7 @@ it('orders manual projects first, then auto by most recent session', () => {
 });
 ```
 
-- [ ] **Step 2：编辑 `groupSessions`：在 filter 之前排序**
+- [x] **Step 2：编辑 `groupSessions`：在 filter 之前排序**
 
 ```ts
 projects.sort((a, b) => {
@@ -1890,7 +1896,7 @@ projects.sort((a, b) => {
 });
 ```
 
-- [ ] **Step 3：跑测，GREEN**
+- [x] **Step 3：跑测，GREEN**
 
 ```bash
 npx vitest run tests/grouping/group.test.ts
@@ -1898,13 +1904,14 @@ npx vitest run tests/grouping/group.test.ts
 
 预期：PASS。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/grouping/group.ts tests/grouping/group.test.ts
 git commit -m "feat(grouping): manual-first, recency-second project ordering"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 5 组：终端集成（Terminal Integration）
@@ -1918,7 +1925,7 @@ git commit -m "feat(grouping): manual-first, recency-second project ordering"
 **Interfaces:**
 - Produces: `escapeForAppleScript(s: string): string`、`buildTerminalAppScript(cwd, command): string`
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -1955,7 +1962,7 @@ describe('buildTerminalAppScript', () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/terminal/escape.test.ts
@@ -1963,7 +1970,7 @@ npx vitest run tests/terminal/escape.test.ts
 
 预期：FAIL。
 
-- [ ] **Step 3：实现 `src/terminal/escape.ts`**
+- [x] **Step 3：实现 `src/terminal/escape.ts`**
 
 ```ts
 export function escapeForAppleScript(s: string): string {
@@ -1984,7 +1991,7 @@ export function buildTerminalAppScript(cwd: string, command: string): string {
 }
 ```
 
-- [ ] **Step 4：跑测，GREEN**
+- [x] **Step 4：跑测，GREEN**
 
 ```bash
 npx vitest run tests/terminal/escape.test.ts
@@ -1992,7 +1999,7 @@ npx vitest run tests/terminal/escape.test.ts
 
 预期：7 用例 PASS。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/terminal/escape.ts tests/terminal/escape.test.ts
@@ -2007,7 +2014,7 @@ git commit -m "feat(terminal): AppleScript single/double quote escaping"
 **Interfaces:**
 - Produces: `terminalApp({cwd, command}): Promise<void>`，用 `execFile('osascript', ['-e', script])`
 
-- [ ] **Step 1：写入 `src/terminal/terminal-app.ts`**
+- [x] **Step 1：写入 `src/terminal/terminal-app.ts`**
 
 ```ts
 import { execFile } from 'node:child_process';
@@ -2027,7 +2034,7 @@ export async function terminalApp(req: OpenRequest): Promise<void> {
 }
 ```
 
-- [ ] **Step 2：手测（仅冒烟：报错也不要紧）**
+- [x] **Step 2：手测（仅冒烟：报错也不要紧）**
 
 ```bash
 osascript -e 'tell application "Terminal" to activate'
@@ -2035,7 +2042,7 @@ osascript -e 'tell application "Terminal" to activate'
 
 预期：Terminal.app 跳到前台（如果未授权会失败 — 见 README）。
 
-- [ ] **Step 3：编译验证**
+- [x] **Step 3：编译验证**
 
 ```bash
 npx tsc --noEmit
@@ -2043,7 +2050,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/terminal/terminal-app.ts
@@ -2058,7 +2065,7 @@ git commit -m "feat(terminal): Terminal.app backend via osascript"
 **Interfaces:**
 - Produces: `iterm2({cwd, command}): Promise<void>`
 
-- [ ] **Step 1：写入 `src/terminal/iterm2.ts`**
+- [x] **Step 1：写入 `src/terminal/iterm2.ts`**
 
 ```ts
 import { execFile } from 'node:child_process';
@@ -2080,7 +2087,7 @@ end tell
 }
 ```
 
-- [ ] **Step 2：编译**
+- [x] **Step 2：编译**
 
 ```bash
 npx tsc --noEmit
@@ -2088,7 +2095,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add src/terminal/iterm2.ts
@@ -2103,7 +2110,7 @@ git commit -m "feat(terminal): iTerm2 backend via osascript create window"
 **Interfaces:**
 - Produces: `warp({cwd, command}): Promise<void>` — 打开 Warp 并尝试 keystroke 注入；失败时回退到 `pbcopy`
 
-- [ ] **Step 1：写入 `src/terminal/warp.ts`**
+- [x] **Step 1：写入 `src/terminal/warp.ts`**
 
 ```ts
 import { execFile } from 'node:child_process';
@@ -2135,7 +2142,7 @@ end tell
 }
 ```
 
-- [ ] **Step 2：编译**
+- [x] **Step 2：编译**
 
 ```bash
 npx tsc --noEmit
@@ -2143,7 +2150,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add src/terminal/warp.ts
@@ -2158,7 +2165,7 @@ git commit -m "feat(terminal): Warp best-effort with pbcopy fallback"
 **Interfaces:**
 - Produces: `dispatch(terminal, req): Promise<void>`，根据 `state.terminal` 路由
 
-- [ ] **Step 1：写入 `src/terminal/index.ts`**
+- [x] **Step 1：写入 `src/terminal/index.ts`**
 
 ```ts
 import type { TerminalChoice } from '../state/types.js';
@@ -2192,7 +2199,7 @@ export class TerminalNotInstalledError extends Error {
 }
 ```
 
-- [ ] **Step 2：编译**
+- [x] **Step 2：编译**
 
 ```bash
 npx tsc --noEmit
@@ -2200,7 +2207,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add src/terminal/index.ts
@@ -2217,7 +2224,7 @@ git commit -m "feat(terminal): dispatcher keyed by state.terminal"
 **Interfaces:**
 - Produces: 后端在 `execFile` 抛错时附带 `binary` 上下文，UI 可识别
 
-- [ ] **Step 1：在 `terminal-app.ts` 中加错误包装**
+- [x] **Step 1：在 `terminal-app.ts` 中加错误包装**
 
 ```ts
 import { TerminalNotInstalledError } from './index.js';
@@ -2249,7 +2256,7 @@ export async function terminalApp(req: OpenRequest): Promise<void> {
 }
 ```
 
-- [ ] **Step 2：相同思路应用到 `iterm2.ts` 与 `warp.ts`**
+- [x] **Step 2：相同思路应用到 `iterm2.ts` 与 `warp.ts`**
 
 `iterm2.ts`：
 
@@ -2265,7 +2272,7 @@ import { TerminalNotInstalledError } from './index.js';
 
 `warp.ts` 已经在内部 try/catch 实现 keystroke fallback；但当 `open -a Warp` 完全找不到 Warp 时也抛 `TerminalNotInstalledError('Warp')`。
 
-- [ ] **Step 3：编译**
+- [x] **Step 3：编译**
 
 ```bash
 npx tsc --noEmit
@@ -2273,7 +2280,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/terminal/
@@ -2290,11 +2297,11 @@ git commit -m "feat(terminal): surface TerminalNotInstalledError for missing app
 **Interfaces:**
 - Produces: 所有 osascript 调用通过 `execFile` + 参数数组；Linter / 注释提醒
 
-- [ ] **Step 1：删除任何 `exec('string...')` 调用**
+- [x] **Step 1：删除任何 `exec('string...')` 调用**
 
 逐文件确认：仅使用 `execFile` + `['osascript', '-e', script]`。
 
-- [ ] **Step 2：添加 ESLint 自定义注释（占位）**
+- [x] **Step 2：添加 ESLint 自定义注释（占位）**
 
 在每个 terminal 后端文件顶部添加：
 
@@ -2305,7 +2312,7 @@ git commit -m "feat(terminal): surface TerminalNotInstalledError for missing app
 
 （如未配 ESLint，至少在文件头添加 markdown 注释说明）
 
-- [ ] **Step 3：审计**
+- [x] **Step 3：审计**
 
 ```bash
 grep -RIn "exec(" src/terminal/
@@ -2313,13 +2320,14 @@ grep -RIn "exec(" src/terminal/
 
 预期：仅出现 `execFile(`；无 `exec("` 或 `exec(\``。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/terminal/
 git commit -m "chore(terminal): document execFile-only policy for osascript calls"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 6 组：Session 管理操作（Actions）
@@ -2334,7 +2342,7 @@ git commit -m "chore(terminal): document execFile-only policy for osascript call
 **Interfaces:**
 - Produces: `resumeSession(session: Session, terminal: TerminalChoice): Promise<void>`
 
-- [ ] **Step 1：写入 `src/actions/resumeSession.ts`**
+- [x] **Step 1：写入 `src/actions/resumeSession.ts`**
 
 ```ts
 import { dispatchOpen } from '../terminal/index.js';
@@ -2351,7 +2359,7 @@ export async function resumeSession(
 }
 ```
 
-- [ ] **Step 2：编译**
+- [x] **Step 2：编译**
 
 ```bash
 npx tsc --noEmit
@@ -2359,7 +2367,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add src/actions/resumeSession.ts
@@ -2371,7 +2379,7 @@ git commit -m "feat(actions): resumeSession dispatches claude --resume"
 **Files:**
 - Create: `src/actions/newSession.ts`
 
-- [ ] **Step 1：写入 `src/actions/newSession.ts`**
+- [x] **Step 1：写入 `src/actions/newSession.ts`**
 
 ```ts
 import { dispatchOpen } from '../terminal/index.js';
@@ -2388,7 +2396,7 @@ export async function newSession(
 }
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -2401,7 +2409,7 @@ git commit -m "feat(actions): newSession opens Claude in project cwd"
 **Files:**
 - Create: `src/actions/renameSession.ts`
 
-- [ ] **Step 1：写入 `src/actions/renameSession.ts`**
+- [x] **Step 1：写入 `src/actions/renameSession.ts`**
 
 ```ts
 import { setAlias } from '../state/store.js';
@@ -2411,7 +2419,7 @@ export async function renameSession(sessionId: string, newName: string): Promise
 }
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -2424,7 +2432,7 @@ git commit -m "feat(actions): renameSession writes alias atomically"
 **Files:**
 - Create: `src/actions/renameProject.ts`
 
-- [ ] **Step 1：写入 `src/actions/renameProject.ts`**
+- [x] **Step 1：写入 `src/actions/renameProject.ts`**
 
 ```ts
 import { setAlias } from '../state/store.js';
@@ -2434,7 +2442,7 @@ export async function renameProject(groupKey: string, newName: string): Promise<
 }
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -2450,7 +2458,7 @@ git commit -m "feat(actions): renameProject writes alias atomically"
 **Interfaces:**
 - Produces: `addManualProject(): Promise<string|null>`，弹文件夹选择器，返回已添加路径或 null
 
-- [ ] **Step 1：写入 `src/actions/addManualProject.ts`**
+- [x] **Step 1：写入 `src/actions/addManualProject.ts`**
 
 ```ts
 import { promises as fs } from 'node:fs';
@@ -2480,7 +2488,7 @@ export async function addManualProject(): Promise<string | null> {
 }
 ```
 
-- [ ] **Step 2：编译（会缺 `folder-picker`，跳过此步直到 Task 8.1 完成后）**
+- [x] **Step 2：编译（会缺 `folder-picker`，跳过此步直到 Task 8.1 完成后）**
 
 暂用 `// @ts-expect-error` 占位，或先创建 `folder-picker` 的空壳：
 
@@ -2491,7 +2499,7 @@ export async function pickFolder(_prompt: string): Promise<string | null> {
 }
 ```
 
-- [ ] **Step 3：编译 + 提交空壳**
+- [x] **Step 3：编译 + 提交空壳**
 
 ```bash
 npx tsc --noEmit
@@ -2504,7 +2512,7 @@ git commit -m "feat(actions): addManualProject with folder picker shell"
 **Files:**
 - Create: `src/actions/deleteManualProject.ts`
 
-- [ ] **Step 1：写入 `src/actions/deleteManualProject.ts`**
+- [x] **Step 1：写入 `src/actions/deleteManualProject.ts`**
 
 ```ts
 import { loadState, saveState } from '../state/store.js';
@@ -2537,7 +2545,7 @@ export async function deleteManualProject(groupKey: string): Promise<void> {
 }
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -2550,7 +2558,7 @@ git commit -m "feat(actions): deleteManualProject removes from manualProjects"
 **Files:**
 - Create: `src/actions/copySessionId.ts`
 
-- [ ] **Step 1：写入 `src/actions/copySessionId.ts`**
+- [x] **Step 1：写入 `src/actions/copySessionId.ts`**
 
 ```ts
 import { spawn } from 'node:child_process';
@@ -2569,7 +2577,7 @@ export async function copySessionId(sessionId: string): Promise<void> {
 }
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -2577,6 +2585,7 @@ git add src/actions/copySessionId.ts
 git commit -m "feat(actions): copySessionId via pbcopy"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 7 组：TUI 界面（TUI Interface）
@@ -2589,7 +2598,7 @@ git commit -m "feat(actions): copySessionId via pbcopy"
 **Interfaces:**
 - Produces: 渲染骨架；持有 `state + dispatch`；订阅扫描回调
 
-- [ ] **Step 1：写入 `src/tui/App.tsx`**
+- [x] **Step 1：写入 `src/tui/App.tsx`**
 
 ```tsx
 import React, { useEffect, useReducer } from 'react';
@@ -2689,7 +2698,7 @@ export const App: React.FC<AppProps> = ({ bootstrapState, projects, onSession, o
 };
 ```
 
-- [ ] **Step 2：编译**
+- [x] **Step 2：编译**
 
 ```bash
 npx tsc --noEmit
@@ -2697,7 +2706,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 3：替换 `src/cli.tsx` 中的占位 App**
+- [x] **Step 3：替换 `src/cli.tsx` 中的占位 App**
 
 编辑 `src/cli.tsx`：
 
@@ -2729,7 +2738,7 @@ render(
 );
 ```
 
-- [ ] **Step 4：启动验证**
+- [x] **Step 4：启动验证**
 
 ```bash
 npx tsx src/cli.tsx </dev/null 2>&1 | head -3 &
@@ -2739,7 +2748,7 @@ kill %1 2>/dev/null || true
 
 预期输出：`cc-session-manager — projects: 0`。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/tui/App.tsx src/cli.tsx
@@ -2754,7 +2763,7 @@ git commit -m "feat(tui): App root with useReducer (skeleton)"
 **Interfaces:**
 - Produces: `<ProjectPane projects, selectedKey, focused onSelect />`，垂直列表 + 高亮
 
-- [ ] **Step 1：写入 `src/tui/panes/ProjectPane.tsx`**
+- [x] **Step 1：写入 `src/tui/panes/ProjectPane.tsx`**
 
 ```tsx
 import React from 'react';
@@ -2800,7 +2809,7 @@ export const ProjectPane: React.FC<Props> = ({ projects, selectedKey, focused, o
 };
 ```
 
-- [ ] **Step 2：编译**
+- [x] **Step 2：编译**
 
 ```bash
 npx tsc --noEmit
@@ -2808,7 +2817,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add src/tui/panes/ProjectPane.tsx
@@ -2820,7 +2829,7 @@ git commit -m "feat(tui): ProjectPane vertical list with focus highlight"
 **Files:**
 - Create: `src/tui/panes/SessionPane.tsx`
 
-- [ ] **Step 1：写入 `src/tui/panes/SessionPane.tsx`**
+- [x] **Step 1：写入 `src/tui/panes/SessionPane.tsx`**
 
 ```tsx
 import React from 'react';
@@ -2858,7 +2867,7 @@ export const SessionPane: React.FC<Props> = ({ sessions, selectedId, focused, on
 };
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -2874,7 +2883,7 @@ git commit -m "feat(tui): SessionPane vertical list with focus highlight"
 **Interfaces:**
 - Produces: `useKeybindings(dispatch, callbacks): void`，在 `useInput` 中分发按键
 
-- [ ] **Step 1：写入 `src/tui/hooks/useKeybindings.ts`**
+- [x] **Step 1：写入 `src/tui/hooks/useKeybindings.ts`**
 
 ```ts
 import { useInput } from 'ink';
@@ -2929,7 +2938,7 @@ export function useKeybindings(
 }
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -2942,7 +2951,7 @@ git commit -m "feat(tui): useKeybindings hook mapping keys to actions"
 **Files:**
 - Create: `src/tui/modals/SearchModal.tsx`
 
-- [ ] **Step 1：写入 `src/tui/modals/SearchModal.tsx`**
+- [x] **Step 1：写入 `src/tui/modals/SearchModal.tsx`**
 
 ```tsx
 import React, { useState } from 'react';
@@ -2967,7 +2976,7 @@ export const SearchModal: React.FC<Props> = ({ initial = '', onSubmit, onCancel 
 };
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -2980,7 +2989,7 @@ git commit -m "feat(tui): SearchModal with ink-text-input"
 **Files:**
 - Create: `src/tui/modals/RenameModal.tsx`
 
-- [ ] **Step 1：写入 `src/tui/modals/RenameModal.tsx`**
+- [x] **Step 1：写入 `src/tui/modals/RenameModal.tsx`**
 
 ```tsx
 import React, { useState } from 'react';
@@ -3006,7 +3015,7 @@ export const RenameModal: React.FC<Props> = ({ initial, kind, onSubmit, onCancel
 };
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3019,7 +3028,7 @@ git commit -m "feat(tui): RenameModal pre-filled"
 **Files:**
 - Create: `src/tui/modals/SettingsModal.tsx`
 
-- [ ] **Step 1：写入 `src/tui/modals/SettingsModal.tsx`**
+- [x] **Step 1：写入 `src/tui/modals/SettingsModal.tsx`**
 
 ```tsx
 import React from 'react';
@@ -3056,7 +3065,7 @@ export const SettingsModal: React.FC<Props> = ({ state, onSubmit, onCancel }) =>
 };
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3069,7 +3078,7 @@ git commit -m "feat(tui): SettingsModal with sessionRoot + terminal radio"
 **Files:**
 - Create: `src/tui/modals/HelpModal.tsx`
 
-- [ ] **Step 1：写入 `src/tui/modals/HelpModal.tsx`**
+- [x] **Step 1：写入 `src/tui/modals/HelpModal.tsx`**
 
 ```tsx
 import React from 'react';
@@ -3107,7 +3116,7 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => (
 );
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3120,7 +3129,7 @@ git commit -m "feat(tui): HelpModal listing all keybindings"
 **Files:**
 - Create: `src/tui/modals/ConfirmModal.tsx`
 
-- [ ] **Step 1：写入 `src/tui/modals/ConfirmModal.tsx`**
+- [x] **Step 1：写入 `src/tui/modals/ConfirmModal.tsx`**
 
 ```tsx
 import React from 'react';
@@ -3144,7 +3153,7 @@ export const ConfirmModal: React.FC<Props> = ({ prompt, onConfirm, onCancel }) =
 
 > 实际 Y/N 键位在 Task 7.14 的 modal 拦截分支处理。
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3157,7 +3166,7 @@ git commit -m "feat(tui): ConfirmModal skeleton (Y/N bound in Task 7.14)"
 **Files:**
 - Create: `src/tui/components/StatusBar.tsx`
 
-- [ ] **Step 1：写入 `src/tui/components/StatusBar.tsx`**
+- [x] **Step 1：写入 `src/tui/components/StatusBar.tsx`**
 
 ```tsx
 import React from 'react';
@@ -3185,7 +3194,7 @@ export const StatusBar: React.FC<Props> = ({ projectCount, sessionCount, scanSta
 );
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3198,7 +3207,7 @@ git commit -m "feat(tui): StatusBar with scan status and last action"
 **Files:**
 - Create: `src/tui/components/EmptyState.tsx`
 
-- [ ] **Step 1：写入 `src/tui/components/EmptyState.tsx`**
+- [x] **Step 1：写入 `src/tui/components/EmptyState.tsx`**
 
 ```tsx
 import React from 'react';
@@ -3212,7 +3221,7 @@ export const EmptyState: React.FC = () => (
 );
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3228,7 +3237,7 @@ git commit -m "feat(tui): EmptyState guidance component"
 **Interfaces:**
 - Produces: `state.focusedPane` 切换；ProjectPane/SessionPane 的 borderColor 跟随
 
-- [ ] **Step 1：在 App reducer 增加 TOGGLE_FOCUS action**
+- [x] **Step 1：在 App reducer 增加 TOGGLE_FOCUS action**
 
 ```ts
 | { type: 'TOGGLE_FOCUS' };
@@ -3238,7 +3247,7 @@ case 'TOGGLE_FOCUS':
   return { ...state, focusedPane: state.focusedPane === 'projects' ? 'sessions' : 'projects' };
 ```
 
-- [ ] **Step 2：在 App 渲染处添加 ProjectPane/SessionPane**
+- [x] **Step 2：在 App 渲染处添加 ProjectPane/SessionPane**
 
 替换 `App.tsx` 的 render 部分：
 
@@ -3258,7 +3267,7 @@ return (
 );
 ```
 
-- [ ] **Step 3：编译 + 启动目测**
+- [x] **Step 3：编译 + 启动目测**
 
 ```bash
 npx tsc --noEmit
@@ -3269,7 +3278,7 @@ kill %1 2>/dev/null || true
 
 预期输出包含 `Projects (0)` 与 `Sessions (0)`。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/tui/App.tsx
@@ -3281,7 +3290,7 @@ git commit -m "feat(tui): two-pane layout with Tab focus switching"
 **Files:**
 - Modify: `src/tui/App.tsx`
 
-- [ ] **Step 1：在 App 的 useInput 处增加 `/` 分支**
+- [x] **Step 1：在 App 的 useInput 处增加 `/` 分支**
 
 在 `src/tui/App.tsx` 内部新增：
 
@@ -3307,7 +3316,7 @@ useInput((input) => {
 )}
 ```
 
-- [ ] **Step 2：在 SessionPane 添加过滤**
+- [x] **Step 2：在 SessionPane 添加过滤**
 
 ```tsx
 import type { Session } from '../../state/types.js';
@@ -3325,7 +3334,7 @@ const filtered = sessions.filter((s) => {
 
 并在 App 渲染 SessionPane 时传入 `searchQuery={state.searchQuery}` —— 用 prop drilling。
 
-- [ ] **Step 3：编译 + 提交**
+- [x] **Step 3：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3338,7 +3347,7 @@ git commit -m "feat(tui): search modal wired to SessionPane filter"
 **Files:**
 - Modify: `src/tui/App.tsx`
 
-- [ ] **Step 1：在 `useInput` 内逐分支绑定**
+- [x] **Step 1：在 `useInput` 内逐分支绑定**
 
 ```tsx
 useInput((input, key) => {
@@ -3372,7 +3381,7 @@ useInput((input, key) => {
 });
 ```
 
-- [ ] **Step 2：编译**
+- [x] **Step 2：编译**
 
 ```bash
 npx tsc --noEmit
@@ -3380,7 +3389,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 3：提交**
+- [x] **Step 3：提交**
 
 ```bash
 git add src/tui/App.tsx
@@ -3392,7 +3401,7 @@ git commit -m "feat(tui): bind r/n/a/d/c/,/?/q with confirm flow"
 **Files:**
 - Modify: `src/tui/App.tsx`
 
-- [ ] **Step 1：在 `useInput` 增加 Enter 分支**
+- [x] **Step 1：在 `useInput` 增加 Enter 分支**
 
 ```tsx
 if (key.return) {
@@ -3411,7 +3420,7 @@ if (key.return) {
 }
 ```
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3424,7 +3433,7 @@ git commit -m "feat(tui): Enter resumes session or focuses session pane"
 **Files:**
 - Create: `src/tui/hooks/useTerminalSize.ts`
 
-- [ ] **Step 1：写入 `src/tui/hooks/useTerminalSize.ts`**
+- [x] **Step 1：写入 `src/tui/hooks/useTerminalSize.ts`**
 
 ```ts
 import { useEffect, useState } from 'react';
@@ -3446,7 +3455,7 @@ export function useTerminalSize(): { cols: number; rows: number } {
 }
 ```
 
-- [ ] **Step 2：在 `App.tsx` 应用尺寸（窄列时截断）**
+- [x] **Step 2：在 `App.tsx` 应用尺寸（窄列时截断）**
 
 在 App 顶层：
 
@@ -3457,7 +3466,7 @@ const compact = cols < 100;
 
 并把 `compact` 透传到 Pane，让 Pane 视情况省略字段。
 
-- [ ] **Step 3：编译 + 提交**
+- [x] **Step 3：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3465,6 +3474,7 @@ git add src/tui/hooks/useTerminalSize.ts src/tui/App.tsx
 git commit -m "feat(tui): terminal resize hook + compact mode below 100 cols"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 8 组：Folder Picker
@@ -3475,7 +3485,7 @@ git commit -m "feat(tui): terminal resize hook + compact mode below 100 cols"
 - Create: `src/util/folder-picker.ts`
 - Replace placeholder from Task 6.5
 
-- [ ] **Step 1：写入 `src/util/folder-picker.ts`**
+- [x] **Step 1：写入 `src/util/folder-picker.ts`**
 
 ```ts
 import { execFile } from 'node:child_process';
@@ -3500,18 +3510,18 @@ return POSIX path of theFolder
 }
 ```
 
-- [ ] **Step 2：手测**
+- [x] **Step 2：手测**
 
 ```bash
 npx tsx -e "import('./src/util/folder-picker.js').then(m => m.pickFolder('Pick').then(p => console.log('picked:', p)).catch(e => console.error('err', e)));"
 # 在弹窗里选一个目录 → 终端打印 POSIX 路径
 ```
 
-- [ ] **Step 3：替换 Task 6.5 占位**
+- [x] **Step 3：替换 Task 6.5 占位**
 
 编辑 `src/actions/addManualProject.ts`，删除 placeholder 注释（Task 6.5 引入的 stub 已被覆盖）。
 
-- [ ] **Step 4：编译 + 提交**
+- [x] **Step 4：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3521,7 +3531,7 @@ git commit -m "feat(util): macOS folder picker via osascript choose folder"
 
 ## Task 8.2：取消时返回 null（已由 Task 8.1 实现）
 
-- [ ] **Step 1：编译检查**
+- [x] **Step 1：编译检查**
 
 ```bash
 npx tsc --noEmit
@@ -3529,7 +3539,7 @@ npx tsc --noEmit
 
 预期：exit 0。
 
-- [ ] **Step 2：提交（空提交或与 8.3 合并）**
+- [x] **Step 2：提交（空提交或与 8.3 合并）**
 
 把改动并入下一个任务。
 
@@ -3538,7 +3548,7 @@ npx tsc --noEmit
 **Files:**
 - Modify: `src/actions/addManualProject.ts`
 
-- [ ] **Step 1：在 addManualProject 内强化校验**
+- [x] **Step 1：在 addManualProject 内强化校验**
 
 ```ts
 import { existsSync, statSync } from 'node:fs';
@@ -3557,7 +3567,7 @@ if (!stat || !stat.isDirectory()) return null;
 
 确保 `src/actions/addManualProject.ts` 用一致写法。
 
-- [ ] **Step 2：编译 + 提交**
+- [x] **Step 2：编译 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -3565,6 +3575,7 @@ git add src/actions/addManualProject.ts
 git commit -m "feat(actions): reject non-directory paths from picker"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 9 组：集成与冒烟测试（Integration & Smoke）
@@ -3578,7 +3589,7 @@ git commit -m "feat(actions): reject non-directory paths from picker"
 **Interfaces:**
 - Produces: 启动顺序：进程锁 → loadState → detectRoot → runDiscovery(回调) → render App
 
-- [ ] **Step 1：实现 `src/state/lock.ts`**
+- [x] **Step 1：实现 `src/state/lock.ts`**
 
 ```ts
 import { promises as fs } from 'node:fs';
@@ -3646,7 +3657,7 @@ process.on('SIGINT', () => {
 });
 ```
 
-- [ ] **Step 2：重写 `src/cli.tsx`**
+- [x] **Step 2：重写 `src/cli.tsx`**
 
 ```tsx
 #!/usr/bin/env node
@@ -3718,7 +3729,7 @@ async function main(): Promise<void> {
 void main();
 ```
 
-- [ ] **Step 3：编译 + 启动**
+- [x] **Step 3：编译 + 启动**
 
 ```bash
 npx tsc --noEmit
@@ -3729,7 +3740,7 @@ kill %1 2>/dev/null || true
 
 预期输出：UI 出现 `Projects (0)` 或 `Projects (N)`。
 
-- [ ] **Step 4：提交**
+- [x] **Step 4：提交**
 
 ```bash
 git add src/cli.tsx src/state/lock.ts
@@ -3740,7 +3751,7 @@ git commit -m "feat(cli): wire loadState → detectRoot → runDiscovery → ren
 
 **Files:** none（人为执行）
 
-- [ ] **Step 1：构建**
+- [x] **Step 1：构建**
 
 ```bash
 npm run build
@@ -3748,7 +3759,7 @@ npm run build
 
 预期：dist/cli.js 存在。
 
-- [ ] **Step 2：本地运行**
+- [x] **Step 2：本地运行**
 
 ```bash
 ./dist/cli.js
@@ -3756,11 +3767,11 @@ npm run build
 
 预期：UI 渲染。若 `~/.claude/projects/` 有真实 session，则项目列表非空。
 
-- [ ] **Step 3：人工记录结果**
+- [x] **Step 3：人工记录结果**
 
 在 README 草稿或个人笔记中记录截图 / 行为。**这一步不进入仓库。**
 
-- [ ] **Step 4：如发现问题，归类并提交修复**
+- [x] **Step 4：如发现问题，归类并提交修复**
 
 ```bash
 git commit -m "fix(integration): <description>"
@@ -3768,11 +3779,11 @@ git commit -m "fix(integration): <description>"
 
 ## Task 9.3：验证 Enter 打开 Terminal 且 cwd 正确
 
-- [ ] **Step 1：在 Terminal.app 中执行 `ccsm`，在 session 上按 Enter**
+- [x] **Step 1：在 Terminal.app 中执行 `ccsm`，在 session 上按 Enter**
 
 预期：Terminal.app 跳到前台，新窗口执行 `cd '<session-cwd>' && claude --resume <id>`。
 
-- [ ] **Step 2：提交（如需代码改动）**
+- [x] **Step 2：提交（如需代码改动）**
 
 若发现 cwd 截断或转义错误，按 bug 提 PR 修复：
 
@@ -3782,15 +3793,15 @@ git commit -m "fix(terminal): correct cwd escape in resume session"
 
 ## Task 9.4：验证 `n` 打开 Terminal.app 在项目目录
 
-- [ ] **Step 1：在 Project 上按 `n`**
+- [x] **Step 1：在 Project 上按 `n`**
 
 预期：新 Terminal 窗口在 project.cwd 启动并执行 `claude`。
 
-- [ ] **Step 2：若失败则修复并提交**
+- [x] **Step 2：若失败则修复并提交**
 
 ## Task 9.5：验证 r / d / c 重启保留
 
-- [ ] **Step 1：按 `r` 重命名一个 session，重启 ccsm，验证别名保留**
+- [x] **Step 1：按 `r` 重命名一个 session，重启 ccsm，验证别名保留**
 
 ```bash
 cat ~/.config/cc-manager/state.json | jq .sessionAliases
@@ -3798,7 +3809,7 @@ cat ~/.config/cc-manager/state.json | jq .sessionAliases
 
 预期：含新别名。
 
-- [ ] **Step 2：按 `d` 删除手动项目，重启验证不恢复**
+- [x] **Step 2：按 `d` 删除手动项目，重启验证不恢复**
 
 ```bash
 cat ~/.config/cc-manager/state.json | jq '.manualProjects | length'
@@ -3806,29 +3817,29 @@ cat ~/.config/cc-manager/state.json | jq '.manualProjects | length'
 
 预期：减少 1。
 
-- [ ] **Step 3：按 `c` 复制 sessionId，粘贴确认 UUID**
+- [x] **Step 3：按 `c` 复制 sessionId，粘贴确认 UUID**
 
-- [ ] **Step 4：提交（若有改动）**
+- [x] **Step 4：提交（若有改动）**
 
 ## Task 9.6：搜索 + Escape
 
-- [ ] **Step 1：按 `/` 输入关键字，Enter；预期 Session 列表过滤**
+- [x] **Step 1：按 `/` 输入关键字，Enter；预期 Session 列表过滤**
 
-- [ ] **Step 2：按 Escape（在主视图），预期过滤清除**
+- [x] **Step 2：按 Escape（在主视图），预期过滤清除**
 
 ## Task 9.7：`,` 切换设置
 
-- [ ] **Step 1：按 `,` 打开 Settings，切换 Terminal 到 iterm2，保存，重启验证**
+- [x] **Step 1：按 `,` 打开 Settings，切换 Terminal 到 iterm2，保存，重启验证**
 
 预期：state.json.terminal === 'iterm2'。
 
 ## Task 9.8：`?` 帮助浮层
 
-- [ ] **Step 1：按 `?` 看到键位列表；再次 `?` 或 Esc 关闭**
+- [x] **Step 1：按 `?` 看到键位列表；再次 `?` 或 Esc 关闭**
 
 ## Task 9.9：`q` 干净退出
 
-- [ ] **Step 1：按 `q`，验证 lock 文件被删**
+- [x] **Step 1：按 `q`，验证 lock 文件被删**
 
 ```bash
 test ! -f ~/.config/cc-manager/lock && echo "lock cleared"
@@ -3836,19 +3847,20 @@ test ! -f ~/.config/cc-manager/lock && echo "lock cleared"
 
 预期：`lock cleared`。
 
-- [ ] **Step 2：若未清理，修复并提交**
+- [x] **Step 2：若未清理，修复并提交**
 
 ```bash
 git commit -m "fix(lock): ensure release() on quit"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 第 10 组：构建与分发（Build & Distribution）
 
 ## Task 10.1：`npm run build` 产出可用 dist
 
-- [ ] **Step 1：清理后构建**
+- [x] **Step 1：清理后构建**
 
 ```bash
 rm -rf dist
@@ -3859,7 +3871,7 @@ head -1 dist/cli.js
 
 预期：`dist/cli.js` 存在，首行 `#!/usr/bin/env node`。
 
-- [ ] **Step 2：直接执行**
+- [x] **Step 2：直接执行**
 
 ```bash
 chmod +x dist/cli.js
@@ -3873,7 +3885,7 @@ kill $PID 2>/dev/null || true
 
 ## Task 10.2：`npm link` 全局验证
 
-- [ ] **Step 1：链接**
+- [x] **Step 1：链接**
 
 ```bash
 npm link
@@ -3882,20 +3894,20 @@ which ccsm
 
 预期：`/Users/.../bin/ccsm` 路径输出。
 
-- [ ] **Step 2：开新 Terminal 会话，输入 `ccsm`**
+- [x] **Step 2：开新 Terminal 会话，输入 `ccsm`**
 
 预期：UI 启动（验证 PATH + shebang + ESM 均正确）。
 
 ## Task 10.3：README 端到端可用
 
-- [ ] **Step 1：按照 README 步骤操作**
+- [x] **Step 1：按照 README 步骤操作**
 
 新用户视角：
 1. `npm install -g cc-session-manager`
 2. `ccsm`
 3. UI 出现
 
-- [ ] **Step 2：更新 README（如有差异）**
+- [x] **Step 2：更新 README（如有差异）**
 
 ```bash
 git add README.md
@@ -3908,7 +3920,7 @@ git commit -m "docs(readme): align install steps with verified flow"
 - Create: `scripts/smoke.sh`
 - Create: `src/cli-smoke.ts`（dump 模式入口）
 
-- [ ] **Step 1：实现 `src/cli-smoke.ts`**
+- [x] **Step 1：实现 `src/cli-smoke.ts`**
 
 ```ts
 #!/usr/bin/env node
@@ -3932,13 +3944,13 @@ async function main(): Promise<void> {
 void main();
 ```
 
-- [ ] **Step 2：在 `tsup.config.ts` 增加 smoke entry**
+- [x] **Step 2：在 `tsup.config.ts` 增加 smoke entry**
 
 ```ts
 entry: ['src/cli.tsx', 'src/cli-smoke.ts'],
 ```
 
-- [ ] **Step 3：写入 `scripts/smoke.sh`**
+- [x] **Step 3：写入 `scripts/smoke.sh`**
 
 ```bash
 #!/bin/bash
@@ -3969,7 +3981,7 @@ test -f ~/.config/cc-manager/lock && {
 }
 ```
 
-- [ ] **Step 4：跑一次**
+- [x] **Step 4：跑一次**
 
 ```bash
 chmod +x scripts/smoke.sh
@@ -3978,13 +3990,14 @@ chmod +x scripts/smoke.sh
 
 预期：`SMOKE OK` 输出。
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add scripts/smoke.sh src/cli-smoke.ts tsup.config.ts
 git commit -m "feat(distribution): smoke script covering dump, state.json, lock"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 # 自检（Self-Review）
@@ -4043,7 +4056,7 @@ git commit -m "feat(distribution): smoke script covering dump, state.json, lock"
 - Create: `tests/util/relative-time.test.ts`
 - Modify: `src/grouping/group.ts`（替换 inline 占位）
 
-- [ ] **Step 1：写红测**
+- [x] **Step 1：写红测**
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -4074,7 +4087,7 @@ it('returns "Nd ago" for >=24h', () => {
 });
 ```
 
-- [ ] **Step 2：跑测，RED**
+- [x] **Step 2：跑测，RED**
 
 ```bash
 npx vitest run tests/util/relative-time.test.ts
@@ -4082,7 +4095,7 @@ npx vitest run tests/util/relative-time.test.ts
 
 预期：FAIL。
 
-- [ ] **Step 3：实现 `src/util/relative-time.ts`**
+- [x] **Step 3：实现 `src/util/relative-time.ts`**
 
 ```ts
 export function relativeTime(iso: string, now: number = Date.now()): string {
@@ -4099,7 +4112,7 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
 }
 ```
 
-- [ ] **Step 4：编辑 `src/grouping/group.ts`**
+- [x] **Step 4：编辑 `src/grouping/group.ts`**
 
 替换 inline 占位：
 
@@ -4113,7 +4126,7 @@ import { relativeTime } from '../util/relative-time.js';
 const relativeTime = (iso: string): string => iso; // 占位；Task 后续替换
 ```
 
-- [ ] **Step 5：跑测，GREEN**
+- [x] **Step 5：跑测，GREEN**
 
 ```bash
 npx vitest run tests/util/relative-time.test.ts tests/grouping/group.test.ts
@@ -4121,13 +4134,14 @@ npx vitest run tests/util/relative-time.test.ts tests/grouping/group.test.ts
 
 预期：全部 PASS。
 
-- [ ] **Step 6：提交**
+- [x] **Step 6：提交**
 
 ```bash
 git add src/util/relative-time.ts tests/util/relative-time.test.ts src/grouping/group.ts
 git commit -m "feat(util): relative-time formatter with vitest coverage"
 ```
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 ## 类型与方法名一致性核查
@@ -4143,6 +4157,7 @@ git commit -m "feat(util): relative-time formatter with vitest coverage"
 
 无不一致。
 
+archived-with: 2026-07-07-cc-session-manager
 ---
 
 ## 执行交接
@@ -4157,3 +4172,4 @@ git commit -m "feat(util): relative-time formatter with vitest coverage"
 
 - Subagent-Driven → `superpowers:subagent-driven-development`
 - Inline → `superpowers:executing-plans`
+

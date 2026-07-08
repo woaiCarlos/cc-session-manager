@@ -1,0 +1,52 @@
+{
+  "name": "cc-session-manager",
+  "version": "0.1.0",
+  "description": "macOS terminal UI to browse and resume Claude Code sessions",
+  "type": "module",
+  "bin": {
+    "ccsm": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "claude-code",
+    "sessions",
+    "tui",
+    "ink"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/cli.tsx",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin"
+  ],
+  "dependencies": {
+    "@inkjs/ui": "^2.0.0",
+    "chalk": "^5.6.2",
+    "ink": "^7.1.0",
+    "ink-text-input": "^6.0.0",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "@types/react": "^19.2.17",
+    "@vitest/ui": "^2.1.9",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
+  }
+}
